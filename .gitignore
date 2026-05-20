@@ -59,6 +59,13 @@ dist/
 *.tar.gz
 *.zip
 
+# --- Library books / papers (copyrighted; do not push) -----------------------
+library/books/**/*.pdf
+library/books/**/*.epub
+library/papers/**/*.pdf
+!library/books/**/.gitkeep
+!library/papers/**/.gitkeep
+
 # --- Ansible -----------------------------------------------------------------
 infra/ansible/inventory.ini
 infra/ansible/host_vars/
