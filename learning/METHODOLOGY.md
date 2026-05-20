@@ -1,6 +1,31 @@
 # Methodology — Cách hệ thống học này được thiết kế
 
 > Tại sao 1 KU phải có cấu trúc như vậy. Tại sao không học định nghĩa hàn lâm. Tại sao analogy quan trọng.
+> **Tài liệu này là LAW. Mọi KU dù dài 500 hay 5,000 từ đều phải tuân thủ.**
+
+---
+
+## 🚫 4 ĐIỀU CẤM TUYỆT ĐỐI
+
+Đây là rule bất biến — university-grade hay junior-friendly đều tuân thủ:
+
+| ❌ Cấm | Vì sao |
+|---|---|
+| **Không setup / install command** (`apt install`, `pip install`, `docker pull`) | Setup là việc 5 phút Google ra. Không phải kiến thức. |
+| **Không tutorial step-by-step** ("Bước 1: mở terminal, gõ...") | Tutorial chết theo version. Bản chất không chết. |
+| **Không code snippet dài** (> 5 dòng) | Code là syntax — bản chất nằm trong **lý do code đó tồn tại**. |
+| **Không screenshot UI** | UI đổi mỗi 6 tháng. Logic không đổi. |
+
+→ Nếu 1 KU đang viết mà tay tôi (Claude) định gõ `docker-compose up -d` → **STOP**. Quay lại hỏi: "đoạn này dạy LOGIC gì?"
+
+## ✅ 4 ĐIỀU BẮT BUỘC
+
+| ✅ Bắt buộc | Hình dáng cụ thể |
+|---|---|
+| **Analogy đời sống mở đầu** | "Tưởng tượng cô bán bún…" / "Như chìa khoá phòng khách sạn…" |
+| **Logic walkthrough** | Step-by-step **lý do** sự việc xảy ra, không phải lệnh chạy |
+| **Trade-off vs alternatives** | Bảng so sánh `(option, ưu, nhược, khi thắng)` |
+| **Khi nào KHÔNG dùng** | Bảng riêng — quan trọng ngang "khi nào dùng" |
 
 ---
 
