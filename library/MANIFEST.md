@@ -2,8 +2,10 @@
 
 > Catalogue chính thức tất cả sách + paper trong thư viện. Mỗi entry map tới module(s) trong [CURRICULUM.md](../learning/CURRICULUM.md).
 
-**Tổng:** 58 sách + 5 paper + 5 Microsoft courses · ~3 GB · 13 categories + courses
+**Tổng:** 104 PDFs/EPUBs + 5 paper + 5 Microsoft courses · ~7.3 GB · 16 categories
 **Cập nhật:** 2026-05-20
+
+> **Lưu ý bản quyền:** Mọi file ở đây tải từ **nguồn vendor chính thức** (CDN của AWS, Snowflake, IBM, Microsoft, Google, OpenAI, Anthropic, delta.io, redis.io...) hoặc **repo public của tác giả**. **Không** có file nào lấy từ libgen/z-library/dokumen/pdfdrive (vi phạm copyright distribution rights).
 
 ---
 
@@ -11,18 +13,26 @@
 
 | Category | Files | Map vào module |
 |---|---:|---|
-| [data-engineering](#-data-engineering-17-books) | 17 | F09 · D15 · D16 · D17 · D18 · D19 · D20 · D22 |
-| [microsoft-fabric](#-microsoft-fabric-21-files) | 21 | D24 Modern Data Stack · D19 Lakehouse |
-| [distributed-systems](#-distributed-systems-2-books) | 2 | F11 Distributed Theory · F12 System Design |
-| [ai-ml](#-ai--ml-5-books) | 5 | D28 · D29 · D30 · D32 |
-| [data-modeling](#-data-modeling-4-books) | 4 | D15 Data Modeling · D19 Lakehouse |
-| [sre-observability](#-sre--observability-2-books) | 2 | D26 Observability & SRE · D37 Chaos |
-| [cloud-azure](#-cloud--azure-1-book) | 1 | D24 · D40 Solution Architecture |
-| [blockchain](#-blockchain-1-book) | 1 | (out of scope) |
-| [web-scraping](#-web-scraping-1-book) | 1 | F03 Modern Python |
-| [papers](#-research-papers-5) | 5 | D28-D33 LLM/RAG/Agents |
+| microsoft-fabric | 23 | D24 Modern Data Stack · D19 Lakehouse |
+| data-engineering | 18 | F09 · D15 · D16-D22 (xương sống) |
+| **aws-cloud** ★ NEW | 13 | D24 · D26 · D38 · D40 (whitepapers chính thức) |
+| ibm-redbooks ★ NEW | 12 | D15 · D19 · D24 · D28 (lake/DW patterns) |
+| ai-ml | 9 | D28 · D29 · D30 · D32 · D33 |
+| snowflake ★ NEW | 5 | D15 · D17 · D24 (architecture papers) |
+| data-modeling | 4 | D15 Data Modeling · D19 Lakehouse |
+| distributed-systems | 2 | F11 Distributed Theory · F12 System Design |
+| sre-observability | 2 | D26 Observability & SRE · D37 Chaos |
+| **google-cloud** ★ NEW | 2 | D17 · D24 (BigQuery + dbt patterns) |
+| **databases-nosql** ★ NEW | 1 | F10 Databases II (Redis real-time) |
+| cloud-azure | 1 | D24 · D40 Solution Architecture |
+| ai-ml/agent-frameworks ★ NEW | 1 | D33 Agents (LlamaIndex docs) |
+| web-scraping | 1 | F03 Modern Python |
+| blockchain | 1 | (out of scope, reference) |
+| streaming | 0 | (chưa có, cần bổ sung) |
+| papers | 5 | D28-D33 LLM/RAG/Agents |
+| **courses/ (5 MS)** | — | D28-D33 + F03 + F14 |
 
-Categories còn trống (cần bổ sung sau): `networking`, `streaming`, `system-design`.
+★ NEW = vừa cào thêm trong session này (vendor whitepapers chính thức).
 
 ---
 
@@ -277,6 +287,70 @@ Ví dụ:
 ✗ designing-data-intensive-applications (z-lib.org).pdf
 ✗ Book-1.pdf
 ```
+
+---
+
+## ☁️ AWS Cloud (13 official whitepapers) ★ NEW
+
+Tất cả từ `docs.aws.amazon.com/pdfs/` và `d1.awsstatic.com` — official AWS CDN.
+
+| File | Tags | Map vào |
+|---|---|---|
+| `AWS_Well-Architected_Framework-Core.pdf` ⭐ | architecture | F12 · D40 |
+| `AWS_Well-Architected_Data-Analytics-Lens.pdf` ⭐ | analytics architecture | D24 · D40 |
+| `AWS_Well-Architected_Generative-AI-Lens.pdf` | GenAI architecture | D30 · D40 |
+| `AWS_Big-Data-Analytics-Options-on-AWS.pdf` | big data overview | D24 |
+| `AWS_Building-Data-Lakes-on-AWS.pdf` | data lake | D19 · D24 |
+| `AWS_Data-Lake-on-AWS-Storage-Solutions.pdf` | S3 patterns | D19 |
+| `AWS_Cost-Modeling-Data-Lakes.pdf` | FinOps | D39 |
+| `AWS_Overview-of-Amazon-Web-Services.pdf` | AWS overview | reference |
+| `AWS_Serverless-Data-Analytics-Pipeline.pdf` | serverless | D17 · D20 |
+| `AWS_Amazon-Connect-Data-Lake-Best-Practices.pdf` | data lake patterns | D19 |
+| `AWS_ML-Best-Practices-Healthcare.pdf` | ML patterns | D28 |
+| `AWS_CAF-Security-Perspective.pdf` | cloud security | F13 |
+| `AWS_AI-for-Security-and-Security-for-AI.pdf` | AI security | D30 · F13 |
+
+## 📚 IBM Redbooks (12 books) ★ NEW
+
+Tất cả từ `redbooks.ibm.com` — official IBM. Thường dày 100-300 trang.
+
+| File | Tags | Map vào |
+|---|---|---|
+| `IBM_Redbook_sg248274_Designing-and-Operating-a-Data-Reservoir.pdf` (25MB) | data lake design | D19 |
+| `IBM_Redbook_sg247637_Enterprise-Data-Warehousing-DB2-zOS.pdf` (15MB) | DW patterns | D15 · F09 |
+| `IBM_Redbook_sg248435_AI-and-Big-Data.pdf` (20MB) | AI infra | D28 · D35 |
+| `IBM_Redbook_sg248488_Spectrum-Discover-Smart-Data.pdf` | data discovery | D27 |
+| `IBM_Redbook_sg248359_Data-Engine-for-Hadoop-and-Spark.pdf` | big data | D18 |
+| `IBM_Redbook_sg248126_Information-Server-DW-Design.pdf` | DW design | D15 |
+| `IBM_Redbook_sg248552_Turning-Data-into-Insight-ML-zOS.pdf` | ML lifecycle | D28 |
+| `IBM_Redbook_sg248573_AI-Data-and-AI.pdf` | watsonx | D28 · D34 |
+| `IBM_Redpaper_redp5486_From-Data-Lake-to-Data-Driven.pdf` | data culture | D27 · D40 |
+| `IBM_Redpaper_redp5120_Governing-and-Managing-Big-Data.pdf` | governance | D27 |
+| `IBM_Redpaper_redp5623_Data-Accelerator-for-AI.pdf` | AI data infra | D35 |
+| `IBM_Redpaper_redp5758_AI-on-IBM-Z.pdf` | enterprise AI | D34 |
+
+## ❄️ Snowflake (5 whitepapers) ★ NEW
+
+| File | Tags |
+|---|---|
+| `Snowflake_A-Detailed-View-Inside-Snowflake.pdf` ⭐ | core architecture |
+| `Snowflake_Elastic-Data-Warehouse-SIGMOD2016.pdf` ⭐ | SIGMOD academic paper |
+| `Snowflake_High-Availability-for-Data-Apps.pdf` | HA architecture |
+| `Snowflake_Data-Engineering-Pipelines-with-Snowpark.pdf` | Snowpark patterns |
+| `Snowflake_AI-Agents-by-Lang-AI.pdf` | AI agents on Snowflake |
+
+## ☁️ Google Cloud (2 whitepapers) ★ NEW
+
+| File | Tags |
+|---|---|
+| `GCP_Unified-Analytics-Data-Platform.pdf` | warehouse + lake unification |
+| `GCP_dbt-BigQuery-Whitepaper.pdf` | dbt pipeline patterns |
+
+## 🗄️ Databases NoSQL (1) ★ NEW
+
+| File | Tags |
+|---|---|
+| `Redis_Building-for-Real-Time_2025.pdf` ⭐ | Redis architecture, real-time patterns |
 
 ---
 
