@@ -1,0 +1,105 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, feature/**, fix/**]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: lint (ruff + black --check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - run: pip install ruff black
+      - run: ruff check producers batch streaming ai serving dsx-air tests || true
+      - run: black --check producers batch streaming ai serving dsx-air tests || true
+
+  validate-schemas:
+    name: validate JSON Schemas
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: pip install jsonschema
+      - run: |
+          python - <<'PY'
+          import json, pathlib, sys, jsonschema
+          errors = []
+          for p in pathlib.Path("schemas").rglob("*.json"):
+              try:
+                  jsonschema.Draft202012Validator.check_schema(json.loads(p.read_text()))
+                  print(f"ok  {p}")
+              except Exception as e:
+                  errors.append((p, e))
+                  print(f"BAD {p}: {e}")
+          sys.exit(0 if not errors else 1)
+          PY
+
+  validate-topologies:
+    name: validate DSX Air topology JSON
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - run: |
+          if compgen -G "topologies/*.json" > /dev/null; then
+            python dsx-air/scripts/validate_topology.py topologies/*.json
+          else
+            echo "no topology files yet — skipping"
+          fi
+
+  ansible-syntax:
+    name: ansible-playbook --syntax-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install ansible
+      - run: |
+          if [ -d infra/ansible/playbooks ]; then
+            for p in infra/ansible/playbooks/*.yml; do
+              ansible-playbook --syntax-check -i localhost, "$p" || exit 1
+            done
+          fi
+
+  validate-contracts:
+    name: data contracts present for every produced topic
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          set -e
+          missing=0
+          for s in schemas/**/*.v1.json; do
+            [ -e "$s" ] || continue
+            name=$(basename "$s" .json)
+            if ! ls governance/data-contracts/${name}.yaml >/dev/null 2>&1 \
+                && ! ls governance/data-contracts/${name}.yml >/dev/null 2>&1; then
+              echo "MISSING contract for schema $name"
+              missing=$((missing + 1))
+            fi
+          done
+          if [ $missing -gt 0 ]; then
+            echo "::warning::$missing contracts missing (allowed in MVP; required by Phase 10)"
+          fi
+
+  markdown-link-check:
+    name: markdown link health
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: gaurav-nelson/github-action-markdown-link-check@v1
+        with:
+          use-quiet-mode: yes
+          config-file: .github/markdown-link-check.json

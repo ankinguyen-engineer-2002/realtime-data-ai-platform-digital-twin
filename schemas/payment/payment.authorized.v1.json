@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform-dsx/payment.authorized.v1",
+  "title": "payment.authorized.v1",
+  "description": "A successful payment authorization.",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "event_time",
+    "customer_id",
+    "order_id",
+    "amount",
+    "currency",
+    "schema_version"
+  ],
+  "properties": {
+    "event_id":       { "type": "string", "pattern": "^evt_[A-Za-z0-9]+$" },
+    "event_type":     { "const": "payment_authorized" },
+    "event_time":     { "type": "string", "format": "date-time" },
+    "producer_time":  { "type": "string", "format": "date-time" },
+    "customer_id":    { "type": "string" },
+    "order_id":       { "type": "string" },
+    "amount":         { "type": "number", "exclusiveMinimum": 0 },
+    "currency":       { "type": "string", "enum": ["USD", "EUR", "VND", "GBP", "JPY"] },
+    "payment_method": { "type": "string", "enum": ["card", "bank_transfer", "wallet", "other"] },
+    "card_number":    { "type": "string", "description": "PII — tokenized before persistence" },
+    "risk_score":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "schema_version": { "const": "1.0" },
+    "_synthetic_label": { "type": "string" }
+  },
+  "additionalProperties": false
+}

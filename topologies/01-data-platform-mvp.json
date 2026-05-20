@@ -1,0 +1,33 @@
+{
+  "name": "data-platform-mvp",
+  "description": "MVP topology: 2 spine + 3 leaf + 6 compute nodes for Phases 0-5",
+  "version": "0.1.0",
+  "oob_management": true,
+  "nodes": [
+    { "name": "spine1",  "os": "cumulus-vx-5.16.1", "role": "switch", "cpu": 2, "memory": 1024, "storage": 10 },
+    { "name": "spine2",  "os": "cumulus-vx-5.16.1", "role": "switch", "cpu": 2, "memory": 1024, "storage": 10 },
+    { "name": "leaf1",   "os": "cumulus-vx-5.16.1", "role": "switch", "cpu": 2, "memory": 1024, "storage": 10 },
+    { "name": "leaf2",   "os": "cumulus-vx-5.16.1", "role": "switch", "cpu": 2, "memory": 1024, "storage": 10 },
+    { "name": "leaf3",   "os": "cumulus-vx-5.16.1", "role": "switch", "cpu": 2, "memory": 1024, "storage": 10 },
+    { "name": "node-event",  "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 8192,  "storage": 80,  "rack": "leaf1" },
+    { "name": "node-cdc",    "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 8192,  "storage": 40,  "rack": "leaf1" },
+    { "name": "node-stream", "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 12288, "storage": 30,  "rack": "leaf2" },
+    { "name": "node-lake",   "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 8192,  "storage": 200, "rack": "leaf2" },
+    { "name": "node-serve",  "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 12288, "storage": 40,  "rack": "leaf3" },
+    { "name": "node-obs",    "os": "generic/ubuntu2404", "role": "server", "cpu": 4, "memory": 8192,  "storage": 50,  "rack": "leaf3" }
+  ],
+  "links": [
+    { "from": "spine1", "from_interface": "swp1", "to": "leaf1", "to_interface": "swp1" },
+    { "from": "spine1", "from_interface": "swp2", "to": "leaf2", "to_interface": "swp1" },
+    { "from": "spine1", "from_interface": "swp3", "to": "leaf3", "to_interface": "swp1" },
+    { "from": "spine2", "from_interface": "swp1", "to": "leaf1", "to_interface": "swp2" },
+    { "from": "spine2", "from_interface": "swp2", "to": "leaf2", "to_interface": "swp2" },
+    { "from": "spine2", "from_interface": "swp3", "to": "leaf3", "to_interface": "swp2" },
+    { "from": "leaf1", "from_interface": "swp3", "to": "node-event",  "to_interface": "eth1" },
+    { "from": "leaf1", "from_interface": "swp4", "to": "node-cdc",    "to_interface": "eth1" },
+    { "from": "leaf2", "from_interface": "swp3", "to": "node-stream", "to_interface": "eth1" },
+    { "from": "leaf2", "from_interface": "swp4", "to": "node-lake",   "to_interface": "eth1" },
+    { "from": "leaf3", "from_interface": "swp3", "to": "node-serve",  "to_interface": "eth1" },
+    { "from": "leaf3", "from_interface": "swp4", "to": "node-obs",    "to_interface": "eth1" }
+  ]
+}

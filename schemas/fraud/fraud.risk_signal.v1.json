@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform-dsx/fraud.risk_signal.v1",
+  "title": "fraud.risk_signal.v1",
+  "type": "object",
+  "required": ["event_id", "event_type", "event_time", "customer_id", "signal_type", "risk_score", "schema_version"],
+  "properties": {
+    "event_id":       { "type": "string" },
+    "event_type":     { "const": "fraud_risk_signal" },
+    "event_time":     { "type": "string", "format": "date-time" },
+    "customer_id":    { "type": "string" },
+    "signal_type":    { "type": "string", "enum": ["velocity", "amount_deviation", "device_change", "ip_change", "blacklist"] },
+    "risk_score":     { "type": "number", "minimum": 0, "maximum": 1 },
+    "details":        { "type": "object" },
+    "schema_version": { "const": "1.0" },
+    "_synthetic_label": { "type": "string" }
+  },
+  "additionalProperties": false
+}

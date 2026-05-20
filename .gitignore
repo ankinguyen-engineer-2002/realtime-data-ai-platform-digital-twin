@@ -1,0 +1,83 @@
+# --- Secrets -----------------------------------------------------------------
+.env
+.env.local
+platform/env/.env
+platform/env/.env.local
+infra/secrets/*.pem
+infra/secrets/*.key
+infra/secrets/age.key
+*.pem
+*.key
+!infra/secrets/age.pub
+!schemas/**/*.json
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+.coverage.*
+.hypothesis/
+
+# --- Notebooks ---------------------------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# --- IDE ---------------------------------------------------------------------
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# --- Logs --------------------------------------------------------------------
+*.log
+logs/
+
+# --- Local state -------------------------------------------------------------
+.local/
+data/
+.dagster/
+*.duckdb
+*.db-shm
+*.db-wal
+
+# --- Build artifacts ---------------------------------------------------------
+target/
+build/
+dist/
+*.tar.gz
+*.zip
+
+# --- Ansible -----------------------------------------------------------------
+infra/ansible/inventory.ini
+infra/ansible/host_vars/
+*.retry
+
+# --- Terraform (if added later) ----------------------------------------------
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# --- DSX Air locally-cached state --------------------------------------------
+.air-cache/
+sim-exports/
+
+# --- Benchmark scratch -------------------------------------------------------
+benchmarks/scratch/
+
+# Keep these
+!.env.example
+!.gitignore
+!.github/

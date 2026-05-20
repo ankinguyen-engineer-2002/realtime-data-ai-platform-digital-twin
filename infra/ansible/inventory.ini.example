@@ -1,0 +1,41 @@
+; Example inventory. Run `make sim-export` to generate a real one with OOB IPs.
+
+[bastion]
+oob-mgmt-server   ansible_host=192.168.200.1
+
+[switches]
+spine1            ansible_host=192.168.200.10
+spine2            ansible_host=192.168.200.11
+leaf1             ansible_host=192.168.200.20
+leaf2             ansible_host=192.168.200.21
+leaf3             ansible_host=192.168.200.22
+
+[event_nodes]
+node-event        ansible_host=192.168.200.31
+
+[cdc_nodes]
+node-cdc          ansible_host=192.168.200.32
+
+[stream_nodes]
+node-stream       ansible_host=192.168.200.33
+
+[lake_nodes]
+node-lake         ansible_host=192.168.200.34
+
+[serve_nodes]
+node-serve        ansible_host=192.168.200.35
+
+[obs_nodes]
+node-obs          ansible_host=192.168.200.36
+
+[hosts:children]
+event_nodes
+cdc_nodes
+stream_nodes
+lake_nodes
+serve_nodes
+obs_nodes
+
+[all:vars]
+ansible_user=cumulus
+ansible_ssh_common_args=-o StrictHostKeyChecking=no

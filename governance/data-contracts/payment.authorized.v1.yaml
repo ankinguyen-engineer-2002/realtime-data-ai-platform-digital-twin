@@ -1,0 +1,65 @@
+# governance/data-contracts/payment.authorized.v1.yaml
+name: payment.authorized.v1
+domain: payment
+owner: payments
+schema: schemas/payment/payment.authorized.v1.json
+status: ACTIVE
+schema_compat: BACKWARD
+
+sla:
+  freshness_p95_s: 30
+  availability: 99.5
+
+fields:
+  - name: event_id
+    pii: false
+    description: unique event identifier
+  - name: customer_id
+    pii: false
+    description: pseudonymous customer identifier
+  - name: order_id
+    pii: false
+  - name: amount
+    pii: false
+  - name: currency
+    pii: false
+  - name: card_number
+    pii: true
+    classification: PCI
+    handling: tokenize_at_ingress
+    retention_raw_days: 0
+  - name: risk_score
+    pii: false
+
+quality:
+  - rule: amount > 0
+    severity: critical
+  - rule: currency in enum [USD, EUR, VND, GBP, JPY]
+    severity: critical
+  - rule: risk_score between 0 and 1
+    severity: warn
+
+examples:
+  good:
+    event_id: evt_abc123
+    event_type: payment_authorized
+    event_time: "2026-05-20T10:15:00Z"
+    customer_id: cus_001
+    order_id: ord_789
+    amount: 249.99
+    currency: USD
+    payment_method: card
+    card_number: "4111111111111111"
+    risk_score: 0.72
+    schema_version: "1.0"
+  bad:
+    event_id: evt_abc124
+    event_type: payment_authorized
+    event_time: "2026-05-20T10:15:00Z"
+    customer_id: cus_001
+    order_id: ord_789
+    amount: -10
+    currency: ZZZ
+    risk_score: 1.7
+    schema_version: "1.0"
+    _synthetic_label: negative_amount

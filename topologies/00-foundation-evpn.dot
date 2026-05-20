@@ -1,0 +1,46 @@
+// 00-foundation-evpn.dot — conceptual fabric reference (GraphViz)
+//
+// Render: dot -Tpng topologies/00-foundation-evpn.dot -o topologies/00-foundation-evpn.png
+
+digraph fabric {
+  rankdir=TB;
+  bgcolor="#0d0f12";
+  node [fontname="Helvetica", fontcolor=white, color=white];
+  edge [color="#7f9fb8"];
+
+  subgraph cluster_spine {
+    label="Spine";
+    color="#7fb8ff";
+    fontcolor="#7fb8ff";
+    spine1 [shape=hexagon, fillcolor="#1e3a5f", style=filled];
+    spine2 [shape=hexagon, fillcolor="#1e3a5f", style=filled];
+  }
+
+  subgraph cluster_leaf {
+    label="Leaf";
+    color="#b87fff";
+    fontcolor="#b87fff";
+    leaf1 [shape=box,     fillcolor="#3a1e5f", style=filled];
+    leaf2 [shape=box,     fillcolor="#3a1e5f", style=filled];
+    leaf3 [shape=box,     fillcolor="#3a1e5f", style=filled];
+  }
+
+  subgraph cluster_hosts {
+    label="Compute (Ubuntu + Docker)";
+    color="#aaa";
+    fontcolor="#aaa";
+    node_event  [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-event"];
+    node_cdc    [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-cdc"];
+    node_stream [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-stream"];
+    node_lake   [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-lake"];
+    node_serve  [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-serve"];
+    node_obs    [shape=oval, fillcolor="#3a3a3a", style=filled, label="node-obs"];
+  }
+
+  spine1 -> leaf1;  spine1 -> leaf2;  spine1 -> leaf3;
+  spine2 -> leaf1;  spine2 -> leaf2;  spine2 -> leaf3;
+
+  leaf1 -> node_event;  leaf1 -> node_cdc;
+  leaf2 -> node_stream; leaf2 -> node_lake;
+  leaf3 -> node_serve;  leaf3 -> node_obs;
+}

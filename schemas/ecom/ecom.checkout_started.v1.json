@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform-dsx/ecom.checkout_started.v1",
+  "title": "ecom.checkout_started.v1",
+  "type": "object",
+  "required": ["event_id", "event_type", "event_time", "session_id", "customer_id", "cart_value", "currency", "schema_version"],
+  "properties": {
+    "event_id":       { "type": "string" },
+    "event_type":     { "const": "checkout_started" },
+    "event_time":     { "type": "string", "format": "date-time" },
+    "session_id":     { "type": "string" },
+    "customer_id":    { "type": ["string", "null"] },
+    "cart_value":     { "type": "number", "minimum": 0 },
+    "currency":       { "type": "string" },
+    "item_count":     { "type": "integer", "minimum": 1 },
+    "schema_version": { "const": "1.0" },
+    "_synthetic_label": { "type": "string" }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,42 @@
+---
+# Phase 2 — bootstrap a freshly-provisioned Ubuntu node
+- name: Bootstrap node
+  hosts: hosts
+  become: true
+  tasks:
+    - name: Set hostname
+      ansible.builtin.hostname:
+        name: "{{ inventory_hostname }}"
+
+    - name: Ensure base packages
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+        name:
+          - curl
+          - jq
+          - htop
+          - tmux
+          - python3-pip
+          - net-tools
+          - tcpdump
+          - iperf3
+          - chrony
+        state: present
+
+    - name: Enable + start chrony
+      ansible.builtin.service:
+        name: chrony
+        state: started
+        enabled: true
+
+    - name: Sysctl tweaks (data services)
+      ansible.posix.sysctl:
+        name: "{{ item.name }}"
+        value: "{{ item.value }}"
+        sysctl_set: true
+        state: present
+      loop:
+        - { name: vm.swappiness,      value: "10" }
+        - { name: vm.max_map_count,   value: "262144" }
+        - { name: net.core.somaxconn, value: "65535" }
