@@ -44,6 +44,88 @@ Little-endian (x86, ARM, modern PCs):
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** 32-bit integer `0x12345678` lưu trong memory dưới 4 bytes. Theo thứ tự nào? Network protocols dùng order A, x86 CPU dùng order B → khi truyền data qua network phải convert.
+>
+> **Why hard:** Không có "right" answer — historical accident. Different vendors picked different orders. Cross-platform binary file = bug nếu quên convert. Big-endian network byte order = TCP/IP standard từ 1981.
+>
+> **What we need:** Biết platform của mình (x86/ARM = little-endian, mainframe SPARC = big-endian), use `htons/htonl` cho network code, specify endianness explicit khi serialize binary.
+
+→ "Endianness" = phép thử nghiêm trọng nhất khi port code mainframe → cloud. Skip = bug invisible cho test, chỉ lộ trên specific data.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Tên "big-endian / little-endian"** từ **Jonathan Swift, "Gulliver's Travels" (1726)** — Lilliputians chiến tranh vì bóc trứng nên đập đầu lớn (Big-Endians) hay đầu nhỏ (Little-Endians). **Danny Cohen (1980)** mượn metaphor trong paper *"On Holy Wars and a Plea for Peace"* để khái niệm computer byte order.
+- **Network byte order = big-endian** — chọn năm 1981 (RFC 791 IP) vì PDP-10, IBM mainframe, Motorola 68000 đều big-endian.
+- **x86 little-endian** — Intel 8080 (1974) chose little-endian cho efficient 8-bit arithmetic (lo byte trước = easier multi-precision).
+- **ARM bi-endian** — switchable, default little-endian on most platforms (Android, iOS).
+- **Java internal big-endian** — JVM specifies BE regardless of host. `DataOutputStream.writeInt()` always BE.
+- **Today (2026):** x86/ARM dominant = little-endian everywhere. Network protocols still big-endian. File formats split (Parquet/Avro LE, JVM class BE, BMP LE, TIFF flexible).
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Send `uint16_t` port qua network không htons
+
+```c
+// ❌ Bind socket to port 80
+struct sockaddr_in addr;
+addr.sin_port = 80;              // x86: bytes 50 00
+bind(sock, (struct sockaddr*)&addr, sizeof(addr));
+// Network expects big-endian → server actually listening on 0x5000 = 20480
+```
+
+**Tại sao bad:** Network byte order = BE. x86 native = LE. Skip `htons()` = port wrong silently. **Always** wrap port + IP với htons/htonl trong network code.
+
+### Anti-pattern 2 — Cast pointer to read multi-byte directly
+
+```c
+// ❌ Read 4 bytes as int without endian-aware
+uint8_t buf[4] = {0x12, 0x34, 0x56, 0x78};
+int* p = (int*)buf;
+int value = *p;
+// x86: 0x78563412
+// big-endian machine: 0x12345678
+// Code không portable
+```
+
+**Tại sao bad:** Pointer cast assume host endianness. Pick explicit:
+```c
+uint32_t value = ((uint32_t)buf[0] << 24) | ((uint32_t)buf[1] << 16)
+               | ((uint32_t)buf[2] << 8)  | buf[3];   // big-endian explicit
+```
+
+### Anti-pattern 3 — UTF-16 file không có BOM
+
+```python
+# ❌ Save UTF-16 without BOM
+text = "Hello"
+with open('out.txt', 'wb') as f:
+    f.write(text.encode('utf-16-le'))      # raw LE, no BOM
+
+# Receiver doesn't know endianness → may decode as utf-16-be → garbage
+```
+
+**Tại sao bad:** UTF-16 needs BOM (`FE FF` BE, `FF FE` LE) hoặc explicit endianness in protocol. Better: use **UTF-8** (no endianness).
+
+### Anti-pattern 4 — Test code chỉ trên 1 architecture
+
+```python
+# ❌ Test pass trên Intel x86, prod crash trên ARM
+def parse_header(data):
+    return struct.unpack('I', data[:4])[0]    # native byte order
+# x86 (LE) parse data từ TCP (BE) → 0x12345678 read as 0x78563412
+# But test fixture also written from x86 → tests pass
+```
+
+**Tại sao bad:** `struct.unpack('I', ...)` = host endianness. Pick `<I` (LE) hoặc `>I` (BE) explicit. Run tests on cross-platform CI (GitHub Actions ARM runner) hoặc QEMU.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Endianness** = order of bytes within a multi-byte value.
@@ -243,6 +325,22 @@ Model weight files (PyTorch .pt, GGUF, safetensors) specify endianness in header
 - **[F01/01 Bits, bytes](./01-bits-bytes-encoding.md)** — byte foundation
 - **[F01/15 String encoding](./15-string-encoding-bugs.md)** — UTF-16 endianness
 - **[F06 Networks](../../semester-2-systems-theory/F06-computer-networks/)** — network byte order
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Beej Network Programming** → `Beej_NetworkProgramming_C.pdf` — htons/htonl examples + chapter on byte ordering. **Bài đọc bắt buộc** cho topic này.
+- **CSAPP samples (CMU)** → byte ordering trong Chapter 2 sample.
+
+📄 **Paper gốc + spec:**
+- **Cohen (1980)**, *["On Holy Wars and a Plea for Peace"](https://www.ietf.org/rfc/ien/ien137.txt)*, IEN 137 — coined "endianness".
+- **RFC 791 (1981)** — IP, network byte order = big-endian.
+- **RFC 1700 (1994)** — Assigned Numbers (replaced by [iana.org](https://www.iana.org/)).
+- **Apache Parquet spec** — [github.com/apache/parquet-format](https://github.com/apache/parquet-format) — file format LE.
+- **Apache Avro spec** — [avro.apache.org/docs](https://avro.apache.org/docs/) — binary LE.
 
 ---
 

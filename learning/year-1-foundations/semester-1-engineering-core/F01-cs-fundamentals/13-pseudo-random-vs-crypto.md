@@ -31,6 +31,86 @@ Hai cách "random":
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cần "số ngẫu nhiên" cho 2 mục đích khác nhau (simulation/game vs security token), khi nào pick PRNG vs CSPRNG?
+>
+> **Why hard:** PRNG nhanh (Mersenne Twister ~1 GB/s) nhưng **deterministic** — biết seed = predict toàn bộ sequence. CSPRNG safe nhưng cần **entropy source** (`/dev/urandom`) — chậm hơn, có thể block. Dùng nhầm = pre-2010 Bitcoin wallet bị brute-force, Java SecureRandom bug 2013 (Android wallets bị empty).
+>
+> **What we need:** Hiểu rõ **threat model** — có attacker không? Nếu có → CSPRNG. Nếu không (Monte Carlo simulation, game shuffle) → PRNG nhanh.
+
+→ Senior pick correctly = không gây security incident. Junior nhầm `random` cho session token = mất account.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Middle-square method (1949)** — **John von Neumann** — PRNG đầu tiên (computer-based). Square seed, take middle digits. Crude but pioneer.
+- **Linear Congruential Generator (LCG, 1951)** — **D.H. Lehmer** — `Xₙ₊₁ = (a·Xₙ + c) mod m`. Đơn giản. Dùng trong `rand()` C/C++ legacy. Bad statistics.
+- **Mersenne Twister (1997)** — **Makoto Matsumoto & Takuji Nishimura** (Hiroshima) — period 2^19937 − 1 (a Mersenne prime!). Today: Python `random`, NumPy default, MATLAB.
+- **Xorshift (2003)** — **George Marsaglia** — extremely fast PRNG. PCG (2014) better statistics.
+- **CSPRNG era:** Linux `/dev/random` (1994), `/dev/urandom` for blocking. Modern: ChaCha20-based (Linux 4.8+ 2016), Fortuna (Schneier 2003).
+- **Famous failures:**
+  - **Netscape SSL (1995)** — seed từ PID + thời gian → brute-force crack 30 phút.
+  - **Debian OpenSSL (2008)** — bug làm RNG seed chỉ 32K possible values. Tất cả keys generated 2006-2008 vulnerable.
+  - **Bitcoin Android (2013)** — Java SecureRandom collision → wallet thefts.
+- **Today (2026):** Python `secrets`, Node `crypto.randomBytes`, Java `SecureRandom`, Go `crypto/rand` — đều dùng OS CSPRNG (chacha20 on Linux).
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — `Math.random()` cho session token
+
+```javascript
+// ❌ Generate session token
+const sessionToken = Math.random().toString(36).slice(2);
+// V8 dùng XorShift128+ (PRNG). Attacker với vài samples có thể recover state.
+// 2015: paper "Cracking V8 Math.random" reverse-engineer V8 state.
+```
+
+**Tại sao bad:** PRNG output predictable từ past outputs. Attacker collect session tokens → predict next → account takeover. Pick `crypto.randomBytes(32).toString('hex')`.
+
+### Anti-pattern 2 — `secrets.token_bytes()` cho game shuffle
+
+```python
+# ❌ Shuffle deck of 52 cards bằng CSPRNG cho 1M games/sec
+import secrets
+def shuffle(deck):
+    return sorted(deck, key=lambda _: secrets.randbits(32))
+# /dev/urandom syscall overhead → block khi entropy pool low
+```
+
+**Tại sao bad:** Game shuffle không có threat model security. Pick `random.shuffle` (Mersenne Twister) — 100× nhanh hơn. CSPRNG chỉ cho password, token, key, salt.
+
+### Anti-pattern 3 — Seed PRNG bằng `time.time()`
+
+```python
+# ❌ Reproducible seed across servers
+import random, time
+random.seed(int(time.time()))
+token = random.randint(0, 2**32)
+# Server time có thể sync close → seed collide
+# Attacker với 1s window → 1000 candidates
+```
+
+**Tại sao bad:** `time.time()` ~32 bits entropy + predictable. Đây chính là Netscape SSL bug 1995. Pick CSPRNG (no seed).
+
+### Anti-pattern 4 — Re-seed CSPRNG trong loop
+
+```python
+# ❌ "Want different randomness mỗi call"
+import secrets, os
+def my_random():
+    secrets.SystemRandom(os.urandom(32))     # re-seed
+    return secrets.randbits(32)
+# OS RNG already cryptographic — re-seeding **giảm** security
+```
+
+**Tại sao bad:** OS RNG đã handle entropy properly. Re-seed = noise + slower. Just call `secrets.randbits(32)` directly.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **PRNG (Pseudo-Random Number Generator)** — deterministic algorithm, đầu vào 1 seed (small entropy), output sequence "looks random" statistically.
@@ -241,6 +321,24 @@ torch.backends.cudnn.deterministic = True
 - **[F01/12 Bit manipulation](./12-bit-manipulation.md)** — XOR-based PRNG
 - **[F13 Security](../../semester-2-systems-theory/F13-security-privacy/)** — crypto deep
 - **[F14 Math for AI](../../semester-2-systems-theory/F14-math-for-data-ai/)** — random sampling
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **MIT Math for CS** → `Lehman_MIT_MathForCS.pdf` — probability + random variable foundations.
+- **Downey ThinkStats2** → `Downey_ThinkStats2.pdf` — statistical inference cần PRNG quality awareness.
+
+📄 **Paper gốc + spec:**
+- von Neumann (1949), *"Various Techniques Used in Connection with Random Digits"* — middle-square method.
+- Lehmer (1951) — LCG original.
+- Matsumoto & Nishimura (1998), *"Mersenne Twister: A 623-dimensionally Equidistributed Uniform Pseudo-random Number Generator"*, ACM TOMACS.
+- O'Neill (2014), *"PCG: A Family of Simple Fast Space-Efficient Statistically Good Algorithms for Random Number Generation"* — [pcg-random.org](https://www.pcg-random.org/).
+- NIST SP 800-90A — DRBG mechanisms (CSPRNG standard).
+- Goldberg & Wagner (1996), *"Randomness and the Netscape Browser"* — first major SSL RNG break.
+- [How "Math.random()" is implemented in V8](https://v8.dev/blog/math-random) — public V8 design.
 
 ---
 

@@ -34,6 +34,86 @@ Checksum trong tech làm y vậy:
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho file gửi qua network (hoặc lưu disk 10 năm), làm sao **detect corruption** (bit flip cosmic ray, disk bit rot, network packet error) với CPU cost tối thiểu?
+>
+> **Why hard:** Bit-by-bit compare cost Θ(n) + cần gửi cả 2 copies → 2× bandwidth. Cryptographic hash (SHA-256) safe nhưng chậm (~500MB/s). Random corruption hiếm nhưng tốn 1 lần đã đủ data loss.
+>
+> **What we need:** Một fixed-size summary (4-8 bytes) computed từ data — detect random corruption với confidence ≥ 99.99% + chạy hardware-accelerated (Θ(1) per byte, often ~1 cycle với SSE/AVX).
+
+→ CRC32 = answer cho problem này từ 1961. Vẫn dùng trong TCP/IP, Ethernet, Kafka, Iceberg today.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Parity bit (1940s)** — IBM mainframes — 1 bit detect single-bit error.
+- **CRC (1961)** — **W. Wesley Peterson** — *"Cyclic Codes for Error Detection"*, IRE Proceedings. Polynomial division over GF(2). Detect all 1-bit, 2-bit errors + 99.997% random.
+- **CRC32 (1975)** — Ethernet standard. Most common 32-bit variant.
+- **CRC32C** = "Castagnoli" polynomial (1993) — better random error detection. **Intel SSE4.2 hardware instruction** (2008) — ~6 GB/s. Used in iSCSI, Btrfs, Kafka, RocksDB.
+- **Adler-32 (1995)** — **Mark Adler** — faster than CRC32 but weaker. Used in zlib.
+- **MD5 (1992)** — **Ron Rivest** — designed cho security but **BROKEN** 2004 (Wang collision attack). Vẫn OK cho integrity (S3 ETag).
+- **SHA family (1995-2015)** — NSA → NIST. SHA-1 broken 2017 (Google SHAttered). SHA-256/3 modern.
+- **BLAKE3 (2020)** — parallel hash, ~10 GB/s. Modern alternative.
+- **Today (2026):** CRC32C cho hot path (Kafka, Iceberg), SHA-256 cho security, BLAKE3 cho high-throughput integrity.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — CRC32 cho password
+
+```python
+# ❌ Hash password with CRC32
+import zlib
+def store_password(pw):
+    return zlib.crc32(pw.encode())   # 32-bit, no salt, no work factor
+```
+
+**Tại sao bad:** CRC32 designed cho integrity, not security. Reversible (rainbow table). Pick **bcrypt / argon2** với salt + work factor.
+
+### Anti-pattern 2 — Compare bytes-equal thay vì checksum
+
+```python
+# ❌ Verify backup matches original by byte compare
+original = open('big-file.bin', 'rb').read()        # 1TB into RAM
+backup = open('backup.bin', 'rb').read()            # 1TB into RAM
+assert original == backup                            # 2TB RAM = OOM
+```
+
+**Tại sao bad:** Bytes compare cần load cả 2 files → 2× memory. Pick **streaming hash**:
+```python
+hash_orig = hashlib.sha256()
+with open('big-file.bin', 'rb') as f:
+    while chunk := f.read(8192): hash_orig.update(chunk)
+# constant memory, single pass
+```
+
+### Anti-pattern 3 — Trust MD5 cho security
+
+```python
+# ❌ Verify download integrity (security context)
+import hashlib
+download_md5 = hashlib.md5(downloaded_data).hexdigest()
+assert download_md5 == expected_md5
+# Attacker MitM có thể craft 2 files cùng MD5 (collision attack from 2004)
+```
+
+**Tại sao bad:** MD5 broken. OK for accidental corruption check (S3 ETag), NOT OK cho security verification. Pick SHA-256 hoặc Ed25519 signature.
+
+### Anti-pattern 4 — Forget endianness của checksum stored
+
+```c
+// ❌ Store CRC32 as uint32 raw bytes → endianness break cross-platform
+uint32_t crc = compute_crc(data);
+fwrite(&crc, sizeof(crc), 1, file);    // x86 little-endian, ARM may differ
+```
+
+**Tại sao bad:** File written on x86 sang ARM → đọc CRC sai. Pick **network byte order** explicit: `htonl(crc)`. KU 16 chi tiết.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Checksum** = small fixed-size value computed từ data, dùng to detect **accidental** corruption.
@@ -240,6 +320,22 @@ Hash of hashes in tree structure. Used in Bitcoin, Git, IPFS, Cassandra anti-ent
 - **[F01/10 Compression](./10-compression-basics.md)** — checksums of compressed blocks
 - **[F01/17 CRC/MD5/SHA](./17-hash-families.md)** — deep dive families
 - **[F13 Security](../../semester-2-systems-theory/F13-security-privacy/)** — crypto hash use
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **CSAPP samples (CMU)** → bit-level operations + integer representations.
+- **Beej C Programming** → `Beej_C_Programming.pdf` — `<arpa/inet.h>` ntohl/htonl reference.
+
+📄 **Paper gốc + spec:**
+- Peterson (1961), *"Cyclic Codes for Error Detection"*, Proc IRE 49(1). [DOI 10.1109/JRPROC.1961.287814](https://doi.org/10.1109/JRPROC.1961.287814).
+- Castagnoli et al. (1993), *"32-Bit Cyclic Redundancy Codes for Internet Applications"* — CRC32C polynomial.
+- Rivest (1992), *"RFC 1321: The MD5 Message-Digest Algorithm"*, [datatracker.ietf.org/doc/html/rfc1321](https://datatracker.ietf.org/doc/html/rfc1321).
+- NIST FIPS 180-4 (2015), *"Secure Hash Standard (SHS)"* — SHA-2 family.
+- O'Connor et al. (2020), [BLAKE3 spec](https://github.com/BLAKE3-team/BLAKE3-specs/blob/master/blake3.pdf).
 
 ---
 

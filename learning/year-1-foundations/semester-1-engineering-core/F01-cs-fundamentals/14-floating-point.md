@@ -33,6 +33,99 @@ Float chỉ lưu 23 bits (single) hoặc 52 bits (double) mantissa → cut off �
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 1 số thực 0.1, làm sao **encode trong 32 hoặc 64 bit** trong khi 0.1 binary = `0.0001100110011...` (infinite repeating)?
+>
+> **Why hard:** Số thực vô hạn, máy tính hữu hạn. Phải **round** somewhere. Không thể represent 0.1 chính xác trong base-2 — chỉ approximate. Mọi phép tính float = chấp nhận rounding error nhỏ. Sai số tích lũy qua N operations → bug ($0.1 × 10 ≠ $1.0).
+>
+> **What we need:** Hiểu **IEEE 754 layout** (sign + exponent + mantissa), 5 rounding modes, special values (NaN, ±Inf, ±0, subnormal), và **đừng bao giờ** dùng float cho tiền/billing. Pick `Decimal` cho money.
+
+→ "Why floating-point isn't exact" = câu hỏi đứng top StackOverflow 15 năm. Hiểu nó = không gửi support 50 ticket tuần tới về "system bug".
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Floating-point ý tưởng (1914)** — **Leonardo Torres y Quevedo** (Tây Ban Nha) proposed in design.
+- **Konrad Zuse Z1 (1938)** — first **electromechanical** floating-point computer. 22-bit format.
+- **Pre-1985 chaos:** Mỗi vendor (IBM, DEC, Cray, HP) tự định nghĩa float format → bug khi port code.
+- **IEEE 754 (1985)** — **William Kahan** (Berkeley) chair committee. Standardize float32 + float64 layout, rounding modes, exception handling. Won Kahan Turing Award 1989. **Kahan summation algorithm** giảm error trong sequential add.
+- **IEEE 754-2008** revision add: float16 (half precision), bfloat16 (Google Brain), fused multiply-add.
+- **bfloat16 (2018)** — **Google Brain** — same exponent range as float32 (8 bits) but mantissa 7 bits → useful cho ML training (range > precision).
+- **float8 (2022-2026)** — **NVIDIA H100** + **Anthropic / OpenAI inference** dùng FP8 cho speed.
+- **Today (2026):** IEEE 754 universal. ML training default bfloat16 hoặc fp16 mixed precision. Inference fp8/int8. Database tiền/billing: NEVER use float — use Decimal/NUMERIC.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Float cho tiền
+
+```python
+# ❌ Calculate invoice
+total = 0.0
+for item in items:
+    total += item.price          # 99.99, 49.99, 19.99, ...
+# Sau 1000 items với prices kiểu .99, total có thể off vài cents
+# Bank/finance audit fail.
+```
+
+**Tại sao bad:** Float không represent 0.99 chính xác. Cumulative error. Pick `decimal.Decimal` Python, `BigDecimal` Java, `NUMERIC(18,4)` SQL.
+
+### Anti-pattern 2 — Compare float với `==`
+
+```python
+# ❌ Equality check
+if total == 1.0:
+    print("Match!")
+# 0.1 + 0.2 + 0.3 + 0.4 = 1.0000000000000002 ≠ 1.0
+```
+
+**Tại sao bad:** Float comparison cần tolerance. Pick:
+```python
+math.isclose(total, 1.0, abs_tol=1e-9)
+```
+
+### Anti-pattern 3 — Naive sum million floats
+
+```python
+# ❌ Sequential sum với precision loss
+total = 0.0
+for x in million_floats:
+    total += x
+# Khi total lớn nhưng x nhỏ → rounding error tích lũy
+# Sai số ~Θ(n · ε) với n = 1M, ε ≈ 2^-52 → ~2.2e-10 relative error
+```
+
+**Tại sao bad:** Cumulative rounding. Pick **Kahan summation** O(n) với O(1) compensation:
+```python
+def kahan_sum(arr):
+    s = c = 0.0
+    for x in arr:
+        y = x - c; t = s + y
+        c = (t - s) - y
+        s = t
+    return s
+```
+→ Sai số Θ(ε) thay vì Θ(n · ε).
+
+### Anti-pattern 4 — Comparison với NaN
+
+```python
+import math
+nan = float('nan')
+print(nan == nan)   # False !!
+print(nan < 1)      # False
+print(nan > 1)      # False
+print(nan != nan)   # True (only way to check)
+# Hoặc dùng math.isnan(x)
+```
+
+**Tại sao bad:** NaN có property `NaN ≠ NaN` (IEEE 754 spec). Sort sẽ unstable. Pick `math.isnan(x)` explicit check. Pandas `df.isna()` cũng handle correctly.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **IEEE 754** = standard cho floating point (1985, updated 2008/2019).
@@ -341,6 +434,22 @@ def kahan_sum(arr):
 - **[F14 Math for AI](../../semester-2-systems-theory/F14-math-for-data-ai/)** — numerical stability
 - **[D29 Deep Learning](../../../year-2-specialization/semester-4-ai-ops-architecture/D29-deep-learning-basics/)** — bfloat16 training
 - **[D30 LLM Engineering](../../../year-2-specialization/semester-4-ai-ops-architecture/D30-llm-engineering/)** — FP8 quantization
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **CSAPP samples (CMU)** → Chapter 2.4 floating-point representation (sample chapter).
+- **Downey ThinkDSP** → `Downey_ThinkDSP.pdf` — DSP requires careful floating-point arithmetic.
+
+📄 **Paper gốc + spec:**
+- **Goldberg (1991)**, *["What Every Computer Scientist Should Know About Floating-Point Arithmetic"](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html)* — bài đọc bắt buộc, free online.
+- **Kahan (1965)**, *"Further remarks on reducing truncation errors"*, CACM — Kahan summation.
+- **IEEE 754-2019 standard** — [ieeexplore.ieee.org/document/8766229](https://ieeexplore.ieee.org/document/8766229).
+- **William Kahan personal page** — [people.eecs.berkeley.edu/~wkahan](https://people.eecs.berkeley.edu/~wkahan/) — IEEE 754 history + extensive papers.
+- **Google bfloat16 paper** — [cloud.google.com/blog/products/ai-machine-learning/bfloat16-the-secret-to-high-performance-on-cloud-tpus](https://cloud.google.com/blog/products/ai-machine-learning/bfloat16-the-secret-to-high-performance-on-cloud-tpus).
 
 ---
 

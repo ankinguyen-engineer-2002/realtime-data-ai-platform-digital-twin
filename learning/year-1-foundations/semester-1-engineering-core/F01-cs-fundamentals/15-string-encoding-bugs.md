@@ -38,6 +38,86 @@ Decode UTF-8 bytes E1 BA BF as Latin-1:
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho dữ liệu text gửi qua N hệ thống khác nhau (database, file system, API, browser), làm sao **đảm bảo encoding bảo toàn** end-to-end + detect khi nào bị broken?
+>
+> **Why hard:** Mỗi system có default encoding khác. Database charset, file system encoding, browser interpretation, JSON spec, CSV implementation, BOM presence. Mỗi điểm = potential corruption.
+>
+> **What we need:** **UTF-8 everywhere policy** + explicit encoding declaration ở mọi boundary (HTTP header `charset=utf-8`, DB `utf8mb4`, file `# -*- coding: utf-8 -*-` Python 2 era, BOM consideration). Plus debugging skill cho khi Mojibake xảy ra.
+
+→ KU 01 dạy "encoding là gì". KU này dạy "khi nó vỡ thì làm sao". Bài học từ trận chiến thật.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Mojibake (文字化け)** — Japanese term, từ "mojibe" (character) + "bake" (transform, corrupt). Era 1990s khi Japan dùng Shift-JIS, EUC-JP, ISO-2022-JP concurrent → swap encoding = unreadable. Nay là universal term.
+- **"Tofu" (□)** — Visual term cho ký tự không render được. Microsoft Noto font phổ biến nhờ "**N**o-more-**oto**fu" goal (Noto).
+- **Charset wars 1990s** — Latin-1 (Western Europe) vs Windows-1252 (Microsoft extend) vs ISO-8859-1 vs ISO-8859-15 (€ symbol added). Excel/Outlook default Windows-1252, web standardize ISO-8859-1, → Mojibake epidemic.
+- **UTF-8 adoption (2000s-2010s)** — Web slowly migrate. 2008: UTF-8 vượt qua ISO-8859-1 trên web. 2010: vượt qua ASCII. 2025: ~98% web pages UTF-8.
+- **CSV problem** — RFC 4180 không specify encoding. Mỗi tool decide khác nhau. Excel mặc định Windows-1252 hoặc system default → user gửi CSV cross-platform = Mojibake.
+- **Today (2026):** Vẫn còn legacy systems Latin-1 / Windows-1252. Vietnamese tăng dùng UTF-8 từ thập kỷ 2000, nhưng government legacy còn TCVN3 / VNI / VPS.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Excel CSV "UTF-8"
+
+```
+User: "Save as CSV (UTF-8)" trong Excel
+→ Excel save BOM (0xEF 0xBB 0xBF) ở đầu file
+→ Some downstream tools (older pandas, sqlite import) treat BOM as data
+→ First column header trở thành "﻿customer_id" thay vì "customer_id"
+```
+
+**Tại sao bad:** Excel BOM behavior inconsistent across versions. Pick:
+- Khi WRITE CSV: skip BOM, explicit `encoding='utf-8'`
+- Khi READ: `encoding='utf-8-sig'` để skip BOM if present
+
+### Anti-pattern 2 — MySQL `utf8` charset
+
+```sql
+-- ❌ Use "utf8" charset trong MySQL
+CREATE TABLE users (
+  name VARCHAR(100) CHARACTER SET utf8
+);
+-- "utf8" trong MySQL CHỈ support 3-byte UTF-8 → mất emoji (4-byte) + 1 số chữ Hán hiếm
+-- Bug: insert "😀" → error 1366 hoặc silent truncate
+```
+
+**Tại sao bad:** MySQL "utf8" = "utf8mb3" (legacy). Real UTF-8 = "utf8mb4". Always use `utf8mb4` cho MySQL.
+
+### Anti-pattern 3 — Auto-detect encoding
+
+```python
+# ❌ "Just guess encoding"
+import chardet
+with open('mystery.csv', 'rb') as f:
+    raw = f.read()
+encoding = chardet.detect(raw)['encoding']
+# chardet đôi khi miss → Latin-1 vs Windows-1252 detect wrong
+# Vietnamese files thường mis-detect as Latin-2 hoặc Greek
+```
+
+**Tại sao bad:** Auto-detect unreliable cho short text or ambiguous encoding. Pick **explicit encoding** từ metadata (HTTP header, DB charset, file convention). Detect = last resort.
+
+### Anti-pattern 4 — Print Unicode trong terminal Windows
+
+```python
+# ❌ Windows cmd.exe default cp1252 hoặc cp936
+print("Tiếng Việt")
+# Windows: UnicodeEncodeError: 'charmap' codec can't encode character 'ế'
+```
+
+**Tại sao bad:** Windows console legacy encoding. Pick:
+- `chcp 65001` (UTF-8) trong cmd
+- PowerShell 7+ default UTF-8
+- Python: `sys.stdout.reconfigure(encoding='utf-8')` (3.7+)
+
+---
+
 ## 📖 Quick reference: encoding map
 
 | Encoding | Bytes/char | Tiếng Việt | Note |
@@ -212,6 +292,22 @@ FF FE 00 00    → UTF-32 LE
 - **[F01/01 Bits, bytes](./01-bits-bytes-encoding.md)** — encoding fundamentals
 - **[F01/16 Endianness](./16-endianness.md)** — UTF-16 endianness
 - **[F09 Databases I](../../semester-2-systems-theory/F09-databases-relational/)** — client_encoding
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Downey ThinkPython2** → `Downey_ThinkPython2.pdf` — Python 3 string handling chapter.
+
+📄 **Reference + spec:**
+- **Joel Spolsky (2003)**, *"The Absolute Minimum Every Software Developer Absolutely, Positively Must Know About Unicode and Character Sets"* — [joelonsoftware.com](https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/).
+- **Unicode Standard (latest)** — [unicode.org/versions](https://www.unicode.org/versions/latest/).
+- **RFC 4180** — Common Format and MIME Type for CSV Files.
+- **W3C Internationalization** — [w3.org/International/](https://www.w3.org/International/).
+- **MySQL UTF-8 documentation** — utf8mb3 vs utf8mb4 history.
+- **PEP 3120** — Python 3 default UTF-8 source.
 
 ---
 

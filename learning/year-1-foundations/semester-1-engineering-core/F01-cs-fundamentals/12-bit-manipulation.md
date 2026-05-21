@@ -48,6 +48,77 @@ Remove "admin" permission:
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 8 boolean flags trong 1 record × 1 tỷ records = 8 GB nếu mỗi bool = 1 byte. Làm sao **pack 8 flags vào 1 byte** + manipulate (set/clear/toggle/check) trong 1 CPU instruction?
+>
+> **Why hard:** Modern languages abstract bits away. Python `bool` = 28 bytes object overhead. Java `boolean` = 1 byte. C `_Bool` = 1 byte. Để thực sự xài 1 bit = phải dùng bitwise operators (AND, OR, XOR, NOT, shift) — low-level skill.
+>
+> **What we need:** 6 bitwise primitives — `&`, `|`, `^`, `~`, `<<`, `>>` — đủ để build flag set, bit field, bloom filter, integer encoding/decoding. CPU thực hiện trong 1 cycle.
+
+→ Bit manipulation = vốn cho mọi protocol design (TCP flags, IPv4 header, Parquet bit-packing, Arrow validity bitmap).
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Boolean algebra (1854)** — **George Boole** — *"An Investigation of the Laws of Thought"*. AND/OR/NOT operations định nghĩa formal trên `{0, 1}`. Foundation cho mọi digital logic.
+- **Claude Shannon (1937)** — MIT MSc thesis — apply Boolean algebra vào electrical circuits. Foundation cho computer design.
+- **Bitwise operators** xuất hiện trong **B language (1969)** → **C (1972)** — Dennis Ritchie. C giữ nguyên semantics đến nay.
+- **Bit twiddling hacks** — **Sean Eron Anderson** (Stanford) maintain famous page [graphics.stanford.edu/~seander/bithacks.html](https://graphics.stanford.edu/~seander/bithacks.html) — tricks classic như: detect power of 2, count bits set (popcount), reverse bits, swap without temp.
+- **Hardware bit operations** — modern CPU SIMD instructions (POPCNT, PDEP, PEXT in BMI2) accelerate population count + bit extraction.
+- **Today (2026):** Bit manipulation backbone của Parquet bit-packing (RLE), Arrow validity bitmap, Bloom filter, IP routing (BGP route summarization), color encoding (RGB565 mobile games).
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Overuse bit manipulation cho readability
+
+```c
+// ❌ "Clever" code
+int abs_val = (x ^ (x >> 31)) - (x >> 31);   // abs() for int32
+
+// vs:
+int abs_val = (x < 0) ? -x : x;              // 10× rõ ràng hơn
+```
+
+**Tại sao bad:** Premature bit twiddling kills readability. Modern compilers tự optimize `abs()` thành bit hack. Pick clarity unless profile shows bottleneck.
+
+### Anti-pattern 2 — Confuse signed shift vs unsigned shift
+
+```c
+int8_t x = -128;       // 1000 0000
+int8_t y = x >> 1;     // signed: 1100 0000 = -64 (arithmetic shift, fill sign bit)
+uint8_t z = (uint8_t)x >> 1;  // unsigned: 0100 0000 = 64 (logical shift, fill 0)
+```
+
+**Tại sao bad:** Behavior khác nhau theo signedness. Java `>>` arithmetic, `>>>` logical. Python `>>` always arithmetic. C undefined cho signed negative.
+
+### Anti-pattern 3 — Set flag bằng OR-EQUAL mỗi lần
+
+```python
+# ❌ "Toggle" flag bằng OR (luôn set, không thực sự toggle)
+flags |= ADMIN_MASK   # always set, never clear
+```
+
+**Tại sao bad:** `|=` chỉ set. Toggle thật cần XOR: `flags ^= ADMIN_MASK`.
+
+### Anti-pattern 4 — Quên parenthesize bitwise vs comparison
+
+```c
+// ❌ Precedence trap
+if (flags & 0x01 == 0)   // = flags & (0x01 == 0) = flags & 0
+                          // không phải (flags & 0x01) == 0
+
+// ✅ Always parenthesize
+if ((flags & 0x01) == 0)
+```
+
+**Tại sao bad:** `==` bind tighter than `&` trong C/Java. Common bug. Always parenthesize bitwise ops.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Bit manipulation** = operate trên bits trực tiếp bằng bitwise operators:
@@ -236,6 +307,22 @@ Interleave bits of multi-dim coords → 1D ordering preserving locality.
 - **[F01/01 Bits, bytes](./01-bits-bytes-encoding.md)** — foundation
 - **[F01/16 Endianness](./16-endianness.md)** — byte order
 - **[F10 Databases II](../../semester-2-systems-theory/F10-databases-beyond-sql/)** — bit packing Parquet
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **CSAPP samples (CMU)** → bits + boolean algebra chapter sample.
+- **Beej C Programming** → `Beej_C_Programming.pdf` — bitwise operators reference với examples.
+
+📄 **Reference + spec:**
+- **Sean Anderson, *"Bit Twiddling Hacks"*** — [graphics.stanford.edu/~seander/bithacks.html](https://graphics.stanford.edu/~seander/bithacks.html) — collection of 200+ tricks.
+- **Hank Warren Jr., *"Hacker's Delight" 2nd ed (2012)*** — bible of bit-level algorithms.
+- **Intel BMI / BMI2 reference** — hardware bit manipulation instructions.
+- **Boole (1854)**, *"An Investigation of the Laws of Thought"* — Boolean algebra foundation, Archive.org.
+- **Shannon (1937)** MSc thesis, MIT.
 
 ---
 

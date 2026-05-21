@@ -30,6 +30,91 @@ Không có encoding chuẩn = "BACH" gửi đi nhưng bên kia đọc ra "B0CH" 
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Máy tính chỉ hiểu 0 và 1. Làm sao **encode** mọi thứ (chữ tiếng Việt, emoji 🎉, hình ảnh, video, audio, IPv6 address) thành bit pattern + đảm bảo **bên gửi và bên nhận hiểu giống nhau**?
+>
+> **Why hard:** Có vô số cách encode "Tiếng Việt" thành bit. ASCII (1963) chỉ có 128 ký tự — không có chữ Việt. ISO-8859-1 (Latin-1) khác Windows-1252 khác UTF-8. Đọc sai encoding = Mojibake. Càng dùng nhiều ngôn ngữ + emoji, càng cần encoding universal.
+>
+> **What we need:** Một encoding chuẩn **universal** + **backward compatible** với ASCII + **variable-length** để efficient với English. Đó là **UTF-8** (1992, Ken Thompson + Rob Pike).
+
+→ Today (2026): UTF-8 dominate 98% web. Mọi modern system (Python 3 string, JSON, HTML5, Linux filesystem) default UTF-8.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Morse code (1830s)** — Samuel Morse — variable-length code đầu tiên. Frequent letters (E, T) shorter codes. Same principle như Huffman 100 năm sau.
+- **Baudot code (1870s)** — 5-bit teletype encoding. Tên thành unit baud rate.
+- **ASCII (1963)** — *American Standard Code for Information Interchange*. 7-bit, 128 ký tự. Bias về English.
+- **EBCDIC (1964)** — IBM mainframe encoding, không tương thích ASCII. Vẫn dùng trong COBOL legacy.
+- **ISO-8859-x (1980s)** — 8-bit extensions cho European languages. 15 variants. Lỗi nếu mix.
+- **Unicode (1991)** — universal character set, 1.1M code points. **Joe Becker** (Xerox) propose. Today: 154 scripts, 149K characters.
+- **UTF-8 (1992)** — **Ken Thompson & Rob Pike** invent trong 1 night để Plan 9 OS. Genius properties: ASCII-compatible (single-byte), self-synchronizing, no null bytes, variable-length (1-4 bytes).
+- **UTF-16 / UTF-32** — alternatives. UTF-16 dùng nội bộ Java/Windows/JavaScript. UTF-32 đơn giản nhưng phí 4× memory cho ASCII.
+- **Today (2026):** UTF-8 thắng cuộc chiến encoding. Mọi system mới default UTF-8.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Open file không specify encoding
+
+```python
+# ❌ Python 2 default ASCII, Python 3 default platform-dependent
+with open('user_data.csv') as f:
+    data = f.read()
+# Windows default cp1252, Linux default utf-8 → broken cross-platform
+```
+
+**Tại sao bad:** Default encoding khác nhau theo OS. Pick **explicit**:
+```python
+with open('user_data.csv', encoding='utf-8') as f: ...
+```
+
+### Anti-pattern 2 — Concat bytes + str
+
+```python
+# ❌ Mix bytes và string
+header = b"Content-Type: text/html\n"
+body = "Hello, Tiếng Việt"
+response = header + body   # TypeError: can't concat str to bytes
+```
+
+**Tại sao bad:** Bytes (raw) khác str (Unicode code points). Phải explicit encode:
+```python
+response = header + body.encode('utf-8')
+```
+
+### Anti-pattern 3 — Substring UTF-8 by byte
+
+```python
+# ❌ Cắt UTF-8 string by byte → broken multi-byte char
+data = "Tiếng Việt".encode('utf-8')   # 12 bytes
+truncated = data[:5]                    # cắt giữa multi-byte char
+print(truncated.decode('utf-8'))        # UnicodeDecodeError
+```
+
+**Tại sao bad:** UTF-8 char "ế" = 3 bytes (E1 BA BF). Cắt giữa → corrupted. **Always** work với decoded `str`, not raw bytes.
+
+### Anti-pattern 4 — `len()` Unicode trả về visual character count
+
+```python
+# ❌ Length of emoji string
+s = "Hello 👨‍👩‍👧‍👦"  # family emoji = ZWJ sequence
+print(len(s))    # 13 (Python counts code points)
+# Visual: 7 characters
+# UTF-8 bytes: 25 bytes
+# 3 different "lengths" — must specify which
+```
+
+**Tại sao bad:** "Length" ambiguous cho Unicode. Pick:
+- **Byte length** for storage: `len(s.encode('utf-8'))`
+- **Code point count** for processing: `len(s)`
+- **Grapheme count** for display: `regex.findall(r'\X', s)` or `grapheme` library
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Bit (binary digit)** — đơn vị thông tin nhỏ nhất, có 2 trạng thái: 0 hoặc 1.
@@ -566,11 +651,21 @@ Encoding thấm vào mọi layer DSX Air:
 
 ---
 
-## 🌐 Đọc thêm (chính thống, hạn chế — 3 nguồn)
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
-- **Joel Spolsky, "The Absolute Minimum Every Software Developer Absolutely, Positively Must Know About Unicode and Character Sets"** (2003) — bài kinh điển, đọc 1 lần là vocabulary built.
-- **RFC 3629 — UTF-8** — chuẩn IETF formal.
-- **Reis-Housley, "Fundamentals of Data Engineering" — Appendix B "Serialization and Compression Technical Details"** — DE context. [Library link](../../../../library/books/data-engineering/Reis-Housley_2022_Fundamentals-of-Data-Engineering.pdf)
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **CSAPP samples (CMU)** → `CSAPP3e_preface_CMU.pdf`, `CSAPP3e_intro_CMU.pdf` — bits, bytes, integer representation (chapter 2 sample).
+- **Beej C Programming** → `Beej_C_Programming.pdf` — practical bit-level operations + types.
+
+📖 **Sách commercial:**
+- **Reis-Housley, "Fundamentals of Data Engineering" — Appendix B "Serialization and Compression Technical Details"** — DE context. [Library link](../../../../library/books/data-engineering/Reis-Housley_2022_Fundamentals-of-Data-Engineering.pdf).
+
+📄 **Paper + spec:**
+- **Joel Spolsky (2003)**, *["The Absolute Minimum Every Software Developer Absolutely, Positively Must Know About Unicode and Character Sets"](https://www.joelonsoftware.com/2003/10/08/the-absolute-minimum-every-software-developer-absolutely-positively-must-know-about-unicode-and-character-sets-no-excuses/)* — bài kinh điển.
+- **RFC 3629 — UTF-8** — [datatracker.ietf.org/doc/html/rfc3629](https://datatracker.ietf.org/doc/html/rfc3629).
+- **Unicode Standard** — [unicode.org/versions/latest/](https://www.unicode.org/versions/latest/).
+- **Pike & Thompson** — UTF-8 history, [doc.cat-v.org/bell_labs/utf-8_history](http://doc.cat-v.org/bell_labs/utf-8_history).
 
 ---
 

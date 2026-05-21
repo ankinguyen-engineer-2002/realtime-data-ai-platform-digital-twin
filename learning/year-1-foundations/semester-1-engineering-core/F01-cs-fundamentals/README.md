@@ -1,16 +1,15 @@
 # F01 — CS Fundamentals
 
-> **🎉 Module COMPLETE: 18/18 KUs at v2 university-grade.**
-> **📈 Pilot upgrade v3 (2026-05-21): 3 KUs (02, 04, 18) đã thêm "Crux/History/Pseudocode/Cost table/Bad example/Recurrence" patterns.**
+> **🎉 Module COMPLETE: 18/18 KUs at v3 university-grade (2026-05-21).**
 >
 > **Vốn chung của mọi engineer.** Bytes / Big-O / data structures / algorithms / encoding / compression. Đây là **bộ từ điển** mọi tool (Postgres, Kafka, Iceberg, ClickHouse, Python) đều xài.
 
 **Học kỳ:** Wave 1 — HK1 Engineering Core
-**Số KUs:** 18/18 ✅ (3 đã v3, 15 còn v2)
+**Số KUs:** 18/18 ⭐ (all v3)
 **Ưu tiên:** ⭐⭐⭐
 **Prerequisites:** [F00 Mental Models](../F00-mental-models/)
-**Đọc trong:** ~3.5 giờ tổng (v2) — ~5 giờ khi full v3
-**Words:** ~38,000 ở chuẩn v2 → ~55,000 khi full v3
+**Đọc trong:** ~5-6 giờ tổng (v3 full)
+**Words:** ~80,000 ở chuẩn v3
 
 > 📋 **v3 Style guide:** [F01_STYLE_v3.md](./F01_STYLE_v3.md) — pedagogy patterns học từ **Erickson UIUC + OSTEP Wisconsin + Sedgewick Princeton** trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/).
 >
@@ -71,34 +70,37 @@ flowchart TD
 
 ---
 
-## 📋 KU list (18/18 ✅)
+## 📋 KU list (18/18 ⭐ v3 COMPLETE)
 
-Legend: ✅ v2 (DE-practical) · ⭐ v3 (university-grade + Crux/History/Pseudocode/Cost table/Bad example/Recurrence)
+Legend: ⭐ v3 = university-grade với 6 sections mới (Crux of the Problem + History + Pseudocode UPPERCASE + Cost annotation table + Bad example anti-pattern + Recurrence equations) học từ Erickson UIUC + OSTEP Wisconsin + Sedgewick Princeton.
 
 | # | KU | Đọc | Level |
 |---:|---|---:|:---:|
-| 01 | [Bits, bytes, encoding](./01-bits-bytes-encoding.md) | 12' | ✅ |
+| 01 | [Bits, bytes, encoding](./01-bits-bytes-encoding.md) | 16' | ⭐ |
 | 02 | [Big-O notation đời thường](./02-big-o-notation.md) | 18' | ⭐ |
-| 03 | [Array vs Linked list](./03-array-vs-linked-list.md) | 12' | ✅ |
+| 03 | [Array vs Linked list](./03-array-vs-linked-list.md) | 16' | ⭐ |
 | 04 | [Hash table — collision + Robin Hood](./04-hash-table.md) | 18' | ⭐ |
-| 05 | [Tree: BST, B-tree, B+tree, LSM](./05-tree-bst-btree.md) | 14' | ✅ |
-| 06 | [Graph + BFS/DFS](./06-graph-bfs-dfs.md) | 10' | ✅ |
-| 07 | [Sorting algorithms](./07-sorting-algorithms.md) | 12' | ✅ |
-| 08 | [Recursion + iteration](./08-recursion-iteration.md) | 10' | ✅ |
-| 09 | [Time vs space complexity](./09-time-vs-space-complexity.md) | 10' | ✅ |
-| 10 | [Compression (Snappy/gzip/LZ4/Zstd)](./10-compression-basics.md) | 12' | ✅ |
-| 11 | [Checksums + integrity hash](./11-checksums-integrity.md) | 10' | ✅ |
-| 12 | [Bit manipulation cơ bản](./12-bit-manipulation.md) | 10' | ✅ |
-| 13 | [Pseudo-random vs crypto](./13-pseudo-random-vs-crypto.md) | 10' | ✅ |
-| 14 | [Floating point — bẫy precision](./14-floating-point.md) | 12' | ✅ |
-| 15 | [String encoding bugs (UTF-8 vs Latin-1)](./15-string-encoding-bugs.md) | 10' | ✅ |
-| 16 | [Endianness (big vs little)](./16-endianness.md) | 8' | ✅ |
-| 17 | [CRC, MD5, SHA hash families](./17-hash-families.md) | 12' | ✅ |
+| 05 | [Tree: BST, B-tree, B+tree, LSM](./05-tree-bst-btree.md) | 20' | ⭐ |
+| 06 | [Graph + BFS/DFS](./06-graph-bfs-dfs.md) | 16' | ⭐ |
+| 07 | [Sorting algorithms](./07-sorting-algorithms.md) | 20' | ⭐ |
+| 08 | [Recursion + iteration](./08-recursion-iteration.md) | 16' | ⭐ |
+| 09 | [Time vs space complexity](./09-time-vs-space-complexity.md) | 14' | ⭐ |
+| 10 | [Compression (Snappy/gzip/LZ4/Zstd)](./10-compression-basics.md) | 18' | ⭐ |
+| 11 | [Checksums + integrity hash](./11-checksums-integrity.md) | 14' | ⭐ |
+| 12 | [Bit manipulation cơ bản](./12-bit-manipulation.md) | 13' | ⭐ |
+| 13 | [Pseudo-random vs crypto](./13-pseudo-random-vs-crypto.md) | 14' | ⭐ |
+| 14 | [Floating point — bẫy precision](./14-floating-point.md) | 16' | ⭐ |
+| 15 | [String encoding bugs (UTF-8 vs Latin-1)](./15-string-encoding-bugs.md) | 14' | ⭐ |
+| 16 | [Endianness (big vs little)](./16-endianness.md) | 12' | ⭐ |
+| 17 | [CRC, MD5, SHA hash families](./17-hash-families.md) | 18' | ⭐ |
 | 18 | [Algorithmic complexity classes (P, NP)](./18-complexity-classes.md) | 18' | ⭐ |
 
-**Tổng F01:** 18 KUs · 3 ⭐ v3 + 15 ✅ v2 · ~4 giờ đọc · ~46,000 từ hiện tại.
+**Tổng F01:** 18 KUs · all ⭐ v3 university-grade · ~5-6 giờ đọc · ~80,000 từ.
 
-**Roadmap full v3:** apply 6 v3 sections (Crux/History/Pseudocode/Cost table/Bad example/Recurrence) lên 15 KU còn lại theo `F01_STYLE_v3.md`. ETA: 2 phases (DS+algo trước, encoding+low-level sau).
+**Pedagogy chuẩn từ 3 textbook đại học (xem [F01_STYLE_v3.md](./F01_STYLE_v3.md)):**
+- 🇺🇸 **Erickson UIUC** — pseudocode UPPERCASE + historical depth + recurrence + bad examples
+- 🇺🇸 **OSTEP Wisconsin** — "Crux of the Problem" boxes + mechanism vs policy framing
+- 🇺🇸 **Sedgewick Princeton** — cost annotation tables + visual step-through
 
 ---
 

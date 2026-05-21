@@ -31,6 +31,117 @@ Bạn cần "công thức tóm tắt" data → ngắn fixed-size số. 3 loại 
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Có 3 thế hệ hash functions — non-crypto (xxHash, MurmurHash), broken crypto (MD5, SHA-1), modern crypto (SHA-256, SHA-3, BLAKE3). Cho mỗi use case (hash table, integrity, password, signature, prompt cache key) pick **đúng cái**?
+>
+> **Why hard:** Mỗi family có speed vs security trade-off cực khác. Pick chậm cho hot path = throughput sập. Pick non-crypto cho security = HashDoS / collision attack. Pick MD5 cho password 2026 = security incident.
+>
+> **What we need:** Biết **threat model** (có attacker không? collision attack possible?), **speed budget** (hot path vs cold storage), **legacy compatibility** (Git stuck SHA-1, S3 ETag stuck MD5).
+
+→ Khi memorize "use SHA-256 for security, xxHash for hash table" = đủ 90% case. Special case (length-extension attack, password hashing) còn lại = phải hiểu mechanism.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **CRC (1961)** — Peterson, polynomial-based error detection.
+- **MD5 (1992)** — **Ron Rivest** (MIT) — Message Digest 5. Pre-internet era. Broken 2004 (Wang collision attack, Crypto conference).
+- **SHA-0 (1993) → SHA-1 (1995)** — NSA designed, NIST standard. SHA-0 had flaw, replaced với SHA-1 within 2 years. SHA-1 collision found 2005 theoretical, 2017 practical (Google **SHAttered** với $110K compute).
+- **SHA-2 family (2001)** — NSA / NIST. SHA-224, SHA-256, SHA-384, SHA-512. Still secure 2026.
+- **SHA-3 / Keccak (2015)** — NIST competition winner (2007-2012). Different design (sponge construction) → backup nếu SHA-2 broken. Adopted slower than expected.
+- **BLAKE (2008)** → **BLAKE2 (2012)** → **BLAKE3 (2020)** — non-NIST hash family. BLAKE3 = tree hashing, parallel, 10 GB/s, modern darling.
+- **MurmurHash (2008)** — **Austin Appleby** — non-crypto, fast for hash table. Used in Cassandra Bloom filter, Hadoop.
+- **xxHash (2012)** — **Yann Collet** (Facebook) — 30 GB/s, non-crypto. Used in LZ4, Zstd dictionary, ClickHouse.
+- **Today (2026):** xxHash/MurmurHash cho hash table; SHA-256 cho security; BLAKE3 cho high-throughput integrity; bcrypt/argon2 cho password.
+
+---
+
+## 🧮 Pseudocode — HMAC + Bloom filter hash  *(v3 — Erickson UIUC style)*
+
+### HMAC (mitigate length-extension attack)
+
+```
+HMAC(key K, message M):
+    if length(K) > BLOCK_SIZE then K ← HASH(K)
+    if length(K) < BLOCK_SIZE then K ← K + ZERO_PAD
+    ipad ← K XOR (0x36 repeated)
+    opad ← K XOR (0x5C repeated)
+    return HASH(opad || HASH(ipad || M))   《|| = concatenation》
+```
+
+→ Why double hash? Vì MD5/SHA-1/SHA-2 Merkle-Damgård construction có length-extension attack — attacker biết `hash(secret || M)` có thể compute `hash(secret || M || M')`. HMAC giải quyết.
+
+### Bloom filter dùng k hash functions
+
+```
+BLOOM_INSERT(bits, x, k):
+    for i ← 1 to k
+        h ← HASH_i(x) mod length(bits)
+        bits[h] ← 1
+
+BLOOM_LOOKUP(bits, x, k):
+    for i ← 1 to k
+        h ← HASH_i(x) mod length(bits)
+        if bits[h] = 0 then return ABSENT       《definitely not in set》
+    return MAYBE_PRESENT                         《1% false positive》
+```
+
+→ **Trick:** k hash functions có thể derive từ 2 hashes: `h_i(x) = h1(x) + i · h2(x)` (Kirsch-Mitzenmacher 2006).
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — MD5 cho password
+
+```python
+# ❌ Hash password with MD5
+import hashlib
+def hash_password(pw):
+    return hashlib.md5(pw.encode()).hexdigest()
+# Rainbow table có sẵn cho mọi password phổ biến → crack trong giây
+# MD5 designed cho integrity, không phải password
+```
+
+**Tại sao bad:** Password hash cần (a) slow (work factor), (b) salt, (c) memory-hard. Pick `bcrypt` / `argon2` / `scrypt`.
+
+### Anti-pattern 2 — `hash(secret || message)` cho HMAC
+
+```python
+# ❌ Naive MAC
+def my_mac(secret, message):
+    return hashlib.sha256(secret + message).hexdigest()
+# Length-extension attack: attacker có (message, mac) → compute mac(secret + message + suffix)
+# Famous: Flickr API 2009 vulnerable
+```
+
+**Tại sao bad:** Merkle-Damgård vulnerability. Pick `hmac.new(secret, message, hashlib.sha256).hexdigest()`.
+
+### Anti-pattern 3 — Compare hash với `==`
+
+```python
+# ❌ String equality cho hash compare
+if user_provided_token == expected_token:
+    grant_access()
+# Timing attack: `==` short-circuit reveal match position
+# 100ms easily distinguish first-char-correct vs all-wrong
+```
+
+**Tại sao bad:** Constant-time compare needed cho security. Pick `hmac.compare_digest(a, b)`.
+
+### Anti-pattern 4 — Truncate SHA-256 to 64 bits
+
+```python
+# ❌ "Save memory" by taking first 8 bytes of SHA-256
+hash_short = hashlib.sha256(data).hexdigest()[:16]   # 64 bits = 16 hex chars
+# Birthday collision at 2^32 ≈ 4 billion — feasible for attacker
+```
+
+**Tại sao bad:** Security strength = half of hash length (birthday bound). 64-bit hash → 32-bit collision resistance. Keep full 256 bits for security uniqueness.
+
+---
+
 ## 📖 So sánh families
 
 | Hash | Year | Bits | Speed | Security |
@@ -207,6 +318,28 @@ Chunks 1KB → hash each → combine pairs → tree → root hash.
 
 - **[F01/11 Checksums](./11-checksums-integrity.md)** — non-crypto basics
 - **[F13 Security](../../semester-2-systems-theory/F13-security-privacy/)** — full security context
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_HashTables.pdf` — hash functions trong context hash table (universal hashing).
+- **MIT Math for CS** → `Lehman_MIT_MathForCS.pdf` — number theory + modular arithmetic foundation cho cryptographic hash.
+
+📄 **Paper gốc + spec:**
+- Rivest (1992), [*RFC 1321: MD5*](https://datatracker.ietf.org/doc/html/rfc1321).
+- NIST FIPS 180-4 (2015), *"Secure Hash Standard (SHS)"* — SHA-2 family standard.
+- NIST FIPS 202 (2015), *"SHA-3 Standard"* — Keccak.
+- Wang & Yu (2005), *"How to Break MD5 and Other Hash Functions"*, EUROCRYPT.
+- Stevens et al. (2017), *["The First Collision for Full SHA-1"](https://shattered.io/)* — Google SHAttered.
+- O'Connor et al. (2020), [BLAKE3 spec](https://github.com/BLAKE3-team/BLAKE3-specs).
+- Kirsch & Mitzenmacher (2006), *"Less hashing, same performance: building a better bloom filter"*.
+- Appleby (2008) — [MurmurHash3](https://github.com/aappleby/smhasher).
+- Collet (2012) — [xxHash spec](https://xxhash.com/).
+- Provos & Mazières (1999), *"A future-adaptable password scheme"* — bcrypt.
+- Biryukov et al. (2016), *"Argon2: New generation of memory-hard password hashing"* — Password Hashing Competition winner.
 
 ---
 
