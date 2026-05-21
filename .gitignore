@@ -69,6 +69,18 @@ library/courses/**
 !library/books/**/.gitkeep
 !library/papers/**/.gitkeep
 
+# --- Private translated derivatives of copyrighted books — NEVER push --------
+# Personal study translations of books we own a copy of. Derivative works
+# of copyrighted material — keep strictly local.
+library/translate-ebook-vn/**/*.md
+library/translate-ebook-vn/**/*.markdown
+library/translate-ebook-vn/**/*.txt
+library/translate-ebook-vn/**/*.png
+library/translate-ebook-vn/**/*.jpg
+library/translate-ebook-vn/**/*.svg
+!library/translate-ebook-vn/.gitkeep
+!library/translate-ebook-vn/README.md
+
 # --- Ansible -----------------------------------------------------------------
 infra/ansible/inventory.ini
 infra/ansible/host_vars/
