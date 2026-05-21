@@ -48,6 +48,119 @@ Bạn đang **xếp đồ vào hộc tủ** trong nhà. 2 cách:
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 1 dãy n phần tử cần (a) random access `[i]`, (b) insert giữa, (c) iterate tuần tự — không tồn tại một data structure thắng cả 3. Làm sao **chọn** đúng?
+>
+> **Why hard:** Array đáp tốt (a)(c) nhưng dở (b). Linked list đáp tốt (b) nhưng dở (a)(c). Modern CPU thêm 1 yếu tố: **cache locality** đảo nhiều trade-off lý thuyết — linked list O(1) insert nhưng wall-clock chậm vì cache miss.
+>
+> **What we need:** Hiểu **memory layout** (contiguous vs scattered) + **access pattern** (sequential vs random) + **constant factor** (cache effect) để pick đúng. Không phải lý thuyết Big-O thuần.
+
+→ Đây là KU đầu tiên trong F01 dạy bạn: **Big-O không đủ** — phải nhìn cả constant factor + cache.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Array** xuất hiện từ máy tính đầu tiên — **ENIAC (1945)** đã có khái niệm "indexed memory". Tên gọi "array" từ tiếng Anh nghĩa "bố trí, sắp xếp thành hàng".
+- **Linked list** được đề xuất chính thức bởi **Allen Newell, Cliff Shaw, Herbert Simon** trong **IPL-II language** (1956) tại RAND Corporation — phục vụ AI research đầu tiên ("Logic Theorist"). Họ cần data structure linh hoạt cho symbolic AI mà array không làm được.
+- **Donald Knuth** trong *TAOCP Vol 1* (1968) §2.2 phân tích formal cả 2 + so sánh memory layout vs operations cost — bài đọc chuẩn đến ngày nay.
+- **Dynamic array (resizable, amortized O(1) append)** — concept hoá vào C++ STL `vector` (1994), Java `ArrayList` (1998), Python `list` (1990).
+- **Today (2026):** Sau khi cache hierarchy + branch predictor xuất hiện (~2000s), linked list rơi vào niche. Modern advice: **default to array**; chỉ pick linked list khi insert/delete giữa nhiều **và** đã có pointer tới node.
+
+---
+
+## 📊 Cost annotation table — operations on each  *(v3 — Sedgewick Princeton style)*
+
+| Operation | Array (static) | Dynamic array (vector) | Singly linked list | Doubly linked list |
+|---|---|---|---|---|
+| **Access by index** `[i]` | Θ(1) | Θ(1) | Θ(n) | Θ(n) |
+| **Search (unsorted)** | Θ(n) | Θ(n) | Θ(n) | Θ(n) |
+| **Insert at end** | (impossible, fixed) | Θ(1) amortized | Θ(n) (no tail ptr) or Θ(1) (with tail) | Θ(1) |
+| **Insert at beginning** | Θ(n) shift | Θ(n) shift | Θ(1) | Θ(1) |
+| **Insert at middle (index known)** | Θ(n) shift | Θ(n) shift | Θ(n) traverse + Θ(1) | Θ(n) traverse + Θ(1) |
+| **Insert at middle (node ptr given)** | (n/a) | (n/a) | Θ(1) | Θ(1) |
+| **Delete at end** | (n/a) | Θ(1) | Θ(n) (singly) | Θ(1) (with tail) |
+| **Delete at middle (node ptr given)** | Θ(n) shift | Θ(n) shift | Θ(1) | Θ(1) |
+| **Iterate sequential** | Θ(n) cache-friendly | Θ(n) cache-friendly | Θ(n) but cache-miss heavy | Θ(n) but cache-miss heavy |
+| **Memory overhead per element** | 0 | 0 + capacity slack | 1 pointer (8 bytes) | 2 pointers (16 bytes) |
+
+**Wall-clock vs Big-O reality (Intel x86_64, ~2024):**
+
+| Workload n=1M ints | Array sequential sum | Linked list sequential sum |
+|---|---|---|
+| Time | ~1 ms | ~20-50 ms |
+| Cache misses | ~1/64 (CL=64B) | ~1/1 (every node) |
+
+→ **Cache hierarchy thắng Big-O đẹp.** Senior pick array trừ khi có lý do mạnh.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Linked list cho "fast insert" mà không nhìn cache
+
+```python
+# ❌ "Linked list O(1) insert nên nhanh hơn array O(n) append?"
+class Node:
+    def __init__(self, val):
+        self.val = val
+        self.next = None
+
+# Build 10M elements:
+head = Node(0)
+cur = head
+for i in range(1, 10_000_000):
+    cur.next = Node(i)
+    cur = cur.next
+# Wall-clock: ~5 giây (chậm vì cache miss mỗi node + GC pressure)
+
+# So với:
+arr = list(range(10_000_000))
+# Wall-clock: ~0.3 giây
+```
+
+**Tại sao bad:** Python `list` amortized O(1) append **và** contiguous memory → cache-friendly. Linked list O(1) insert **nhưng** mỗi node là 1 allocation riêng → fragmented → cache miss. Big-O đúng — wall-clock thua.
+
+### Anti-pattern 2 — Random access trên linked list
+
+```python
+# ❌ Truy cập index trên linked list
+def get(head, i):
+    while i > 0:
+        head = head.next
+        i -= 1
+    return head.val
+
+# get(head, 999_999) trên 1M list = walk 1M pointer.
+# Θ(n) per access. n access random = Θ(n²). Trong loop = sập.
+```
+
+**Tại sao bad:** Linked list không random-accessible. Pick **array** nếu workload có random `[i]`.
+
+### Anti-pattern 3 — Array resize trong hot loop
+
+```python
+# ❌ Insert at front of list 1M times
+arr = []
+for x in stream:
+    arr.insert(0, x)    # Θ(n) shift mỗi lần → Θ(n²) total
+```
+
+**Tại sao bad:** `list.insert(0, ...)` = shift toàn bộ. Pick **deque** (`collections.deque`) — doubly linked list with O(1) prepend, hoặc append-then-reverse.
+
+### Anti-pattern 4 — Doubly linked list khi chỉ cần forward iterate
+
+```python
+# ❌ Doubly linked list (prev + next pointers) cho stack
+# = 2× memory overhead so với array hoặc singly linked
+# = không xài prev pointer bao giờ
+```
+
+**Tại sao bad:** Doubly linked tốn 16 bytes overhead/node (vs 8 bytes singly). Pick singly nếu chỉ iterate forward. Pick array nếu không insert giữa.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Array** = sequence of elements stored at **contiguous memory addresses**, indexed by integer. Truy cập `arr[i]` → tính địa chỉ `base + i × element_size` → O(1).
@@ -634,11 +747,21 @@ Array-first design choices:
 
 ---
 
-## 🌐 Đọc thêm (chính thống, hạn chế — 3 nguồn)
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapters 2 (Array-Based Lists: ArrayStack, ArrayDeque, DualArrayDeque, RootishArrayStack) + Chapter 3 (Linked Lists: SLList, DLList, SEList) — implementation chi tiết + amortized analysis.
+- **Sedgewick Princeton** → `Sedgewick_Princeton_StacksQueues.pdf` — visual mental model arrays vs linked lists trong context of stacks/queues.
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` — Appendix về basic data structures.
+
+📖 **Tham khảo bên ngoài:**
 - **CLRS Chapter 10** — Elementary Data Structures (arrays, lists, stacks, queues).
-- **Bjarne Stroustrup, "Why you should avoid Linked Lists"** (CppCon talk 2014) — empirical lesson on cache.
+- **Bjarne Stroustrup, "Why you should avoid Linked Lists"** (CppCon talk 2014, [YouTube](https://www.youtube.com/watch?v=YQs6IC-vgmo)) — empirical lesson on cache hierarchy.
 - **Aleksey Shipilëv, "Move List to Array"** (JVM expert blog) — JVM-specific deep dive.
+
+📄 **Paper gốc:**
+- Newell, Shaw, Simon (1956), *"The Logic Theory Machine"*, IPL-II — đề xuất linked list cho AI research đầu tiên.
 
 ---
 

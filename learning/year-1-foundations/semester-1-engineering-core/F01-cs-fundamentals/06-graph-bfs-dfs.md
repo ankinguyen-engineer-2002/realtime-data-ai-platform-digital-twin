@@ -43,6 +43,185 @@ Bạn muốn tìm **đường ngắn nhất** từ bạn đến 1 người lạ 
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho V vertex, E edge, làm sao **explore toàn bộ** đảm bảo (a) không lặp, (b) tìm shortest path, (c) detect cycle — với memory + time hợp lý?
+>
+> **Why hard:** Tổng số path từ vertex `s` có thể exponential (~V!). Visit twice = infinite loop. Khôi phục path đã đi = state lớn. Choose order to explore = ảnh hưởng to result (BFS shortest vs DFS arbitrary).
+>
+> **What we need:** Một mechanism giữ **visited set** + một **queue/stack** quyết order — đó chính là **BFS** (queue → shortest path) và **DFS** (stack → topological/cycle). Cả 2 chạy trong Θ(V + E) — best có thể.
+
+→ BFS và DFS là 2 "primitives" cơ bản nhất của graph algorithm — mọi thứ phức tạp hơn (Dijkstra, Floyd-Warshall, Tarjan SCC) đều build trên top.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Graph theory** ra đời chính thức từ **Leonhard Euler (1736)** giải bài toán **Königsberg's Seven Bridges** — chứng minh không có đường đi qua mỗi cầu đúng 1 lần. Đây là paper graph theory đầu tiên.
+- **BFS** — invented độc lập:
+  - **Konrad Zuse** (1945, Đức) trong unpublished Plankalkül thesis — chỉ được biết sau khi tìm thấy years later
+  - **Edward F. Moore** (1959, Bell Labs) — *"The Shortest Path Through a Maze"* — formal BFS dùng để route phone calls
+  - **Charles Y. Lee** (1961, IBM) — *"An Algorithm for Path Connections and its Applications"* — apply BFS cho VLSI circuit routing
+- **DFS** — **Tarjan & Hopcroft (1971-1972)** formalize + analyze. DFS từng được Charles Pierre Trémaux (Pháp, thế kỷ 19) đề xuất giải mê cung (maze solving).
+- **Dijkstra (1959)** — extension của BFS cho weighted graph. Edsger Dijkstra design trong 20 phút tại quán cafe ở Amsterdam, không có giấy bút.
+- **Today (2026):** BFS/DFS chạy trong mọi data engineering tool: Airflow DAG topological sort, OpenLineage discovery, Neo4j traversal, social network friend recommendation, Git commit graph, K8s dependency resolver.
+
+---
+
+## 🧮 Pseudocode chuẩn — BFS + DFS  *(v3 — Erickson UIUC style)*
+
+### BFS — shortest path (unweighted)
+
+```
+BFS(G, source):
+    visited ← {source}
+    queue ← NEW_QUEUE()
+    ENQUEUE(queue, (source, 0))     《(vertex, distance)》
+    dist[source] ← 0
+    while queue is not empty
+        (u, d) ← DEQUEUE(queue)
+        for each v in NEIGHBORS(G, u)
+            if v not in visited then
+                visited ← visited ∪ {v}
+                dist[v] ← d + 1
+                parent[v] ← u
+                ENQUEUE(queue, (v, d + 1))
+    return dist, parent
+```
+
+→ **Invariant:** vertex pop ra khỏi queue theo thứ tự distance từ source. BFS tìm shortest path **trên unweighted graph**.
+
+### DFS — recursive
+
+```
+DFS(G, source):
+    visited ← ∅
+    DFS_VISIT(G, source, visited)
+
+DFS_VISIT(G, u, visited):
+    visited ← visited ∪ {u}
+    for each v in NEIGHBORS(G, u)
+        if v not in visited then
+            DFS_VISIT(G, v, visited)
+```
+
+### DFS — iterative (with stack)
+
+```
+DFS_ITER(G, source):
+    visited ← {source}
+    stack ← NEW_STACK()
+    PUSH(stack, source)
+    while stack is not empty
+        u ← POP(stack)
+        for each v in NEIGHBORS(G, u)
+            if v not in visited then
+                visited ← visited ∪ {v}
+                PUSH(stack, v)
+```
+
+### Topological sort (DAG only)
+
+```
+TOPSORT(G):
+    visited ← ∅
+    order ← EMPTY_STACK
+    for each u in V(G)
+        if u not in visited then
+            DFS_POSTORDER(G, u, visited, order)
+    return REVERSE(order)
+
+DFS_POSTORDER(G, u, visited, order):
+    visited ← visited ∪ {u}
+    for each v in NEIGHBORS(G, u)
+        if v not in visited then
+            DFS_POSTORDER(G, v, visited, order)
+    PUSH(order, u)               《push AFTER recursion》
+```
+
+→ Topological sort = backbone của Airflow/Dagster scheduler.
+
+---
+
+## 📊 Cost annotation table — graph operations  *(v3 — Sedgewick Princeton style)*
+
+| Operation | Adjacency list | Adjacency matrix | Edge list |
+|---|---|---|---|
+| **Space** | Θ(V + E) ⚡ | Θ(V²) | Θ(E) |
+| **Add edge** | Θ(1) | Θ(1) | Θ(1) |
+| **Remove edge** | Θ(degree) | Θ(1) | Θ(E) |
+| **Check edge (u,v)** | Θ(degree(u)) | Θ(1) ⚡ | Θ(E) |
+| **List neighbors(u)** | Θ(degree(u)) ⚡ | Θ(V) | Θ(E) |
+| **BFS / DFS total** | Θ(V + E) ⚡ | Θ(V²) | Θ(V · E) |
+| **Dijkstra (binary heap)** | Θ((V+E) log V) | Θ(V² log V) | Θ(V · E · log V) |
+| **Dijkstra (Fibonacci heap)** | Θ(V log V + E) | (n/a) | (n/a) |
+| **Floyd-Warshall (all-pairs)** | Θ(V³) | Θ(V³) | (n/a) |
+| **Topological sort** | Θ(V + E) | Θ(V²) | Θ(V · E) |
+| **Tarjan SCC** | Θ(V + E) | Θ(V²) | (n/a) |
+
+**Picking guide:**
+- Sparse graph (`E ≪ V²`) → **adjacency list** (Facebook social, web link graph)
+- Dense graph (`E ≈ V²`) → **adjacency matrix** (small clique, distance matrix)
+- Edge-only iteration → **edge list** (Kruskal MST)
+
+→ Facebook 3.5B users adjacency-list, không matrix (matrix = 12 quintillion bytes).
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Forget visited set
+
+```python
+# ❌ "Simple" DFS không track visited
+def dfs(g, u):
+    print(u)
+    for v in g[u]:
+        dfs(g, v)
+# Bất kỳ cycle nào → infinite recursion → stack overflow
+```
+
+**Tại sao bad:** Real graph có cycle (friendship mutual, web link reciprocal). Skip visited set = guaranteed infinite loop. **Always** maintain visited.
+
+### Anti-pattern 2 — DFS cho shortest path (unweighted)
+
+```python
+# ❌ "Tìm shortest path Hà Nội → TP.HCM bằng DFS"
+def shortest_path(g, s, t):
+    return dfs_find_path(g, s, t)
+```
+
+**Tại sao bad:** DFS không guarantee shortest. DFS có thể đi vòng qua Đà Nẵng → Vũng Tàu → TP.HCM thay vì Hà Nội → Vinh → TP.HCM. **BFS guarantee shortest** trên unweighted graph; Dijkstra cho weighted.
+
+### Anti-pattern 3 — BFS với recursive call
+
+```python
+# ❌ BFS implemented bằng recursion
+def bfs(g, s, depth=0):
+    visited = {s}
+    for v in g[s]:
+        bfs(g, v, depth + 1)    # ← DFS thật sự, không phải BFS
+```
+
+**Tại sao bad:** Recursion = stack-based = DFS by nature. BFS **bắt buộc** dùng explicit queue. Đây là common interview mistake.
+
+### Anti-pattern 4 — Detect cycle trên directed bằng visited-only
+
+```python
+# ❌ "DFS đến node visited rồi → cycle"
+def has_cycle(g):
+    visited = set()
+    for u in g:
+        if u not in visited:
+            if dfs_cycle(g, u, visited):  # ← BROKEN cho directed
+                return True
+    return False
+```
+
+**Tại sao bad:** Trên **directed graph**, đến visited node có thể là **cross-edge** (đã visit trong DFS tree khác) không phải cycle. Cần **3-color marking** (white/gray/black) hoặc tracking **recursion stack** riêng. Erickson Algorithms §6 có treatment đầy đủ.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Graph** G = (V, E) where V = set of **vertices** (nodes), E = set of **edges** (pairs of vertices).
@@ -432,10 +611,25 @@ ML model that operates on graph structure (node embedding + message passing).
 
 ---
 
-## 🌐 Đọc thêm
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
-- CLRS Chapters 22-26.
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Erickson Algorithms (UIUC, CC BY 4.0)** → `Erickson_2019_Algorithms_UIUC.pdf` Chapter 6 (Graph Search — BFS, DFS, topological sort, SCC) + Chapter 7-9 (MST, Shortest Paths, All-Pairs).
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_UndirectedGraphs.pdf`, `Sedgewick_Princeton_DirectedGraphs.pdf` — visual step-through. (MST/ShortestPaths slides also available if downloaded.)
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapter 12 (Graphs — adjacency list/matrix + BFS/DFS).
+
+📖 **Sách commercial:**
+- CLRS Chapters 22-26 — graph algorithms bible.
 - Stanford CS161 Graph Algorithms lectures.
+- **Skiena, *The Algorithm Design Manual*** Chapters 5-6 — practical graph algorithms catalog.
+
+📄 **Paper gốc:**
+- Euler (1736), *"Solutio problematis ad geometriam situs pertinentis"* — Königsberg's Seven Bridges, foundation paper of graph theory.
+- Moore (1959), *"The Shortest Path Through a Maze"* — BFS shortest path.
+- Lee (1961), *"An Algorithm for Path Connections and its Applications"* — BFS for VLSI.
+- Dijkstra (1959), *"A Note on Two Problems in Connexion with Graphs"*. [DOI 10.1007/BF01386390](https://doi.org/10.1007/BF01386390).
+- Tarjan (1972), *"Depth-first Search and Linear Graph Algorithms"*, SIAM J Comp. [DOI 10.1137/0201010](https://doi.org/10.1137/0201010).
 
 ---
 

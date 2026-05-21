@@ -39,6 +39,167 @@ Compression algorithms = **tìm pattern + replace bằng reference ngắn hơn**
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 1TB data trên S3 / Iceberg, làm sao **giảm storage cost 5-10×** mà không tăng query latency quá nhiều?
+>
+> **Why hard:** Compression ratio cao ↔ CPU decompress chậm. Mỗi query phải decompress trước khi process → CPU bottleneck nếu pick sai. Plus: compression không bypass được **Shannon entropy lower bound** — không thể compress random data.
+>
+> **What we need:** Hiểu **entropy** (lý thuyết của Shannon 1948) + 3 metric (ratio, compress speed, decompress speed) + pick đúng codec cho workload (Snappy fast-read vs Zstd small-storage vs LZ4 balanced).
+
+→ Snappy 2× ratio + 500MB/s decompress vs Zstd 4× ratio + 200MB/s decompress = **không có "best", chỉ có "fit"**.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Shannon (1948)** — *"A Mathematical Theory of Communication"*, Bell Labs. Founded **information theory** + concept of **entropy**. Đặt lower bound cho lossless compression: cannot compress below `H(X)` bits per symbol on average.
+- **Huffman coding (1952)** — **David A. Huffman** (MIT) như graduate term paper. Optimal prefix-free code. Today component của gzip, JPEG, MP3.
+- **LZ77 (1977)** & **LZ78 (1978)** — **Abraham Lempel & Jacob Ziv** (Israel) — sliding window pattern matching. Foundation của ZIP, gzip, PNG.
+- **DEFLATE (1993)** — **Phil Katz** (PKZIP). Combination LZ77 + Huffman. Standard ZIP / gzip / PNG.
+- **bzip2 (1996)** — **Julian Seward** — Burrows-Wheeler Transform (BWT) + Huffman. Better ratio, slower.
+- **Snappy (2011)** — **Google** open source. Designed cho speed > ratio. Default Hadoop, Kafka, ClickHouse.
+- **LZ4 (2011)** — **Yann Collet** (Facebook). Faster than Snappy. Default Iceberg data files.
+- **Zstd (2015)** — **Yann Collet** (Facebook). Configurable level 1-22. Default Parquet, Iceberg, ZFS.
+- **Brotli (2015)** — **Google** — web-optimized (predefined dictionary). HTTP `Content-Encoding: br`.
+- **Today (2026):** Zstd thắng cho data lake (Iceberg/Delta), Snappy/LZ4 cho hot path (Kafka topic compression).
+
+---
+
+## 🧮 Pseudocode — Huffman + LZ77 core  *(v3 — Erickson UIUC style)*
+
+### Huffman tree construction
+
+```
+BUILD_HUFFMAN(text):
+    freq ← COUNT_FREQUENCIES(text)
+    heap ← NEW_MIN_HEAP()
+    for each (char, count) in freq
+        PUSH(heap, NEW_LEAF(char, count))
+    while SIZE(heap) > 1
+        left ← POP_MIN(heap)
+        right ← POP_MIN(heap)
+        merged ← NEW_INTERNAL(left, right, left.count + right.count)
+        PUSH(heap, merged)
+    return POP_MIN(heap)        《root of Huffman tree》
+
+ENCODE(text, tree):
+    table ← BUILD_CODE_TABLE(tree)    《walk tree, record left=0, right=1》
+    bits ← EMPTY_BIT_STRING
+    for each char in text
+        APPEND_BITS(bits, table[char])
+    return bits
+```
+
+**Properties:**
+- Optimal **prefix-free** code (no code is prefix of another).
+- `H(text) ≤ avg_code_length(text) ≤ H(text) + 1`.
+- Build Θ(σ log σ) where σ = alphabet size.
+
+### LZ77 sliding window
+
+```
+LZ77_COMPRESS(input, window_size W, lookahead L):
+    pos ← 0
+    output ← EMPTY
+    while pos < length(input)
+        《Find longest match in window》
+        (offset, length) ← LONGEST_MATCH(input[pos-W..pos], input[pos..pos+L])
+        if length ≥ MIN_MATCH then
+            APPEND(output, (offset, length, input[pos + length]))
+            pos ← pos + length + 1
+        else
+            APPEND(output, (0, 0, input[pos]))     《literal byte》
+            pos ← pos + 1
+    return output
+```
+
+→ Each output: `(offset, length, next_literal)`. Match longer = better compression.
+
+---
+
+## 📊 Cost annotation table — codec comparison  *(v3 — Sedgewick Princeton style)*
+
+| Codec | Compress speed | Decompress speed | Ratio (text) | Ratio (random) | Lib licence |
+|---|---|---|---|---|---|
+| **None** | ∞ | ∞ | 1.0× | 1.0× | — |
+| **LZ4** | 500 MB/s | 4 GB/s ⚡ | 2.1× | 1.0× | BSD |
+| **Snappy** | 250 MB/s | 500 MB/s | 2.0× | 1.0× | Apache 2 |
+| **Zstd level 1** | 470 MB/s | 1.3 GB/s | 2.9× | 1.0× | BSD |
+| **Zstd level 3** | 250 MB/s | 1.3 GB/s | 3.2× | 1.0× | BSD |
+| **Zstd level 19** | 8 MB/s | 1.0 GB/s | 4.7× | 1.0× | BSD |
+| **Zstd level 22** | 3 MB/s | 1.0 GB/s | 5.2× | 1.0× | BSD |
+| **gzip level 6** | 35 MB/s | 200 MB/s | 3.5× | 1.0× | GPL |
+| **bzip2 level 9** | 7 MB/s | 25 MB/s | 4.5× | 1.0× | BSD |
+| **xz / LZMA** | 2 MB/s | 70 MB/s | 5.8× | 1.0× | Public Domain |
+| **Brotli quality 11** | 1 MB/s | 400 MB/s | 5.0× | 1.0× | MIT |
+
+\* Benchmarks indicative, vary by data + hardware. Reference: [Squash benchmark](https://quixdb.github.io/squash-benchmark/).
+
+**Picking guide:**
+| Workload | Pick |
+|---|---|
+| Kafka topic compression (hot path) | **LZ4** or **Snappy** (decomp speed > ratio) |
+| Iceberg data files (cold storage) | **Zstd level 3** (balanced) or level 9 (cold) |
+| Parquet column data | **Snappy** (default) or **Zstd** |
+| HTTP web response | **Brotli** (browser support, predefined dict) |
+| Archive (rarely read) | **xz** / **Zstd-22** (max ratio) |
+| Real-time stream | **LZ4** (fast decomp) |
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Compress already-compressed data
+
+```python
+# ❌ gzip JPEG image
+import gzip
+with open('photo.jpg', 'rb') as f:
+    data = f.read()
+compressed = gzip.compress(data)
+# JPEG already compressed → entropy đã maximal
+# gzip output thường > original size (overhead)
+```
+
+**Tại sao bad:** Shannon entropy lower bound. Random/compressed data → cannot compress. Skip compression cho JPEG, PNG, MP4, AES-encrypted, ZIP-in-ZIP.
+
+### Anti-pattern 2 — High compression level cho hot path
+
+```python
+# ❌ Compress Kafka messages với Zstd-22 cho "tiết kiệm bandwidth"
+producer = KafkaProducer(compression_type='zstd', compression_level=22)
+# Compress 100KB message: ~30ms CPU
+# Network save: ~70% → ~30ms saved
+# Net: tie, BUT broker CPU + consumer CPU multiplied by N consumers
+# → cluster CPU bottleneck → throughput crater
+```
+
+**Tại sao bad:** Hot path latency = compress + network + decompress × N consumers. High level lossless = CPU bottleneck. Pick `lz4` hoặc `snappy` cho Kafka.
+
+### Anti-pattern 3 — Compress 1 row per file
+
+```
+❌ Iceberg với compression="zstd", 1 row per data file
+Result: 100M tiny files, mỗi file 200 bytes (1 row + zstd header overhead)
+Compression NEGATIVE (output > input)
+```
+
+**Tại sao bad:** Compression header overhead amortize qua block size. < 4KB per block = compression negative. Pick file size 128MB-1GB for Iceberg/Parquet, compression block 64-256KB.
+
+### Anti-pattern 4 — Lossy compression cho structured data
+
+```python
+# ❌ Compress CSV với JPEG-like algorithm
+# Hoặc: round numeric column to "save bytes"
+df['revenue'] = df['revenue'].round(-2)  # round to nearest 100
+# → mất exact value, không phải compression mà là data destruction
+```
+
+**Tại sao bad:** Structured data (CSV, JSON, log) cần **lossless**. Lossy = bug. Pick Zstd/gzip lossless cho structured. Lossy chỉ cho audio/video/image.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Compression** = represent data với fewer bits by exploiting patterns.
@@ -317,9 +478,25 @@ Time-series with similar consecutive values:
 
 ---
 
-## 🌐 Đọc thêm
-- Facebook Zstd paper (2016).
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_DataCompression.pdf` (nếu downloaded) — visual treatment Huffman + LZW + RLE.
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` — Huffman coding trong greedy algorithm chapter.
+
+📖 **Tham khảo bên ngoài:**
 - "The Data Compression Book" (Mark Nelson).
+- [Squash benchmark](https://quixdb.github.io/squash-benchmark/) — codec comparison empirical.
+- Facebook engineering blog cho Zstd.
+
+📄 **Paper gốc:**
+- Shannon (1948), *"A Mathematical Theory of Communication"*, Bell System Tech J. — entropy + information theory foundation.
+- Huffman (1952), *"A Method for the Construction of Minimum-Redundancy Codes"*, IRE.
+- Ziv & Lempel (1977), *"A Universal Algorithm for Sequential Data Compression"*, IEEE Trans Info Theory — LZ77.
+- Ziv & Lempel (1978), *"Compression of Individual Sequences via Variable-Rate Coding"* — LZ78.
+- Burrows & Wheeler (1994), *"A Block-sorting Lossless Data Compression Algorithm"* — BWT foundation cho bzip2.
+- Collet (2016), [Zstd RFC 8478](https://datatracker.ietf.org/doc/html/rfc8478).
 
 **Đã đọc xong?**
 ✅ Tick → [F01/11 Checksums + integrity hash](./11-checksums-integrity.md).

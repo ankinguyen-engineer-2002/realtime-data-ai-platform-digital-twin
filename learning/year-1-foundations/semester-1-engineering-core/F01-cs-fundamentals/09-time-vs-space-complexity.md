@@ -34,6 +34,113 @@ Trong code:
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Mọi algorithm có 2 chi phí (time + space). Cho 1 vấn đề, làm sao **biết khi nào** chấp nhận tăng memory để giảm CPU, và khi nào ngược lại?
+>
+> **Why hard:** Junior nhìn Big-O time một mình → pick "nhanh nhất" → OOM production. Senior nhìn cả time + space + cache hierarchy. Memory thường **không miễn phí**: K8s container có limit, GPU VRAM ~80GB max, CPU cache 32KB/L1.
+>
+> **What we need:** Hiểu **trade-off principle** + **approximate data structures** (Bloom filter, HyperLogLog, Count-Min) để có "good enough" trong memory budget hạn chế.
+
+→ Sketch data structures = sản phẩm của trade-off thinking — chấp nhận ~2% error để tiết kiệm 1000× memory.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Space-time trade-off** lần đầu chính thức hoá bởi **Michael Fischer** (1972) trong context of automata theory.
+- **Bloom filter (1970)** — **Burton Howard Bloom** (MIT) — *"Space/Time Trade-offs in Hash Coding with Allowable Errors"* — set membership với false positive trade for memory.
+- **Memoization (1968)** — **Donald Michie** (Edinburgh) coined term *memo* = "function that remembers". Vehicle cho dynamic programming.
+- **HyperLogLog (2007)** — **Philippe Flajolet et al.** (INRIA Paris) — count distinct với KB memory thay vì GB. Today: Redis HLL, ClickHouse uniq estimators, Druid count-distinct.
+- **Count-Min sketch (2005)** — **Cormode & Muthukrishnan** — approximate frequency in small memory.
+- **External-memory algorithms** — **Aggarwal & Vitter (1988)** formalize I/O complexity model — count disk I/O thay vì CPU ops. Today: Spark/Hadoop shuffle design dùng model này.
+- **Today (2026):** Sketch data structures là backbone của observability (Prometheus, Datadog), real-time analytics (Druid, ClickHouse), DNS analytics (Cloudflare HLL).
+
+---
+
+## 📊 Cost annotation table — space-time trade-offs  *(v3 — practical guide)*
+
+| Need | Pick | Trade for |
+|---|---|---|
+| Fast lookup by key | Hash table | More memory (load factor + bucket array) |
+| Tight memory + ordered | Sorted array binary search | Slower insert (Θ(n) shift) |
+| Faster query | B-tree index | Storage (~30% of table) + slower insert |
+| Tighter storage | Compression (Zstd/Snappy) | CPU on decompress |
+| Process > RAM size | External sort + Spark | Disk I/O = 10-100× slower than RAM |
+| Approximate distinct count | HyperLogLog (KB memory) | ~2% error |
+| Approximate membership | Bloom filter (bit array) | False positive ~1% with ~10 bits/element |
+| Approximate frequency | Count-Min sketch | Over-estimate bias |
+| Approximate percentile | t-digest, GK-sketch | <1% error |
+| Approximate similarity | MinHash, LSH | ~5% error |
+| Cache for repeated compute | Memoization | Memory grows with unique input space |
+
+**Sketch data structures used in real systems:**
+
+| Structure | Memory | Error | Used in |
+|---|---|---|---|
+| **Bloom filter** | ~10 bits / element | 1% FP | RocksDB, Cassandra, Bitcoin SPV |
+| **HyperLogLog** | ~12 KB for any n | <2% error | Redis HLL, ClickHouse, Druid, GCP BigQuery |
+| **Count-Min** | Θ(1/ε · log 1/δ) | (ε, δ)-bounded | AT&T traffic analysis |
+| **t-digest** | ~few KB | <1% percentile error | Datadog, Apache Druid |
+| **MinHash / LSH** | k · sizeof(hash) | tunable | Plagiarism detection, deduplication |
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Memoize unbounded → OOM
+
+```python
+# ❌ Memoize fibonacci nhưng không bound cache size
+memo = {}
+def fib(n):
+    if n in memo: return memo[n]
+    if n <= 1: return n
+    memo[n] = fib(n-1) + fib(n-2)
+    return memo[n]
+# Loop with user input n → memo grows forever → OOM
+```
+
+**Tại sao bad:** Memoization trades **bounded** memory for time. Unbounded memo = memory leak. Pick `functools.lru_cache(maxsize=10_000)` — LRU eviction.
+
+### Anti-pattern 2 — HyperLogLog cho billing
+
+```python
+# ❌ Use HLL cho count distinct users → billing
+distinct_users = redis.pfcount('users:active')
+bill = distinct_users * 0.001
+# HLL có ~2% error → có thể bill thiếu $thousands hoặc thừa khiến complain
+```
+
+**Tại sao bad:** Approximate OK cho analytics dashboard, **KHÔNG OK** cho transactions / billing / counts that must be exact. Pick `SET` (Θ(n) memory) hoặc audit log nếu exact required.
+
+### Anti-pattern 3 — Premature space optimization
+
+```c
+// ❌ Bit-pack 8 booleans vào 1 byte cho "save memory"
+typedef struct { uint8_t flags; } UserFlags;
+#define IS_ADMIN(u) ((u)->flags & 0x01)
+#define IS_VERIFIED(u) (((u)->flags & 0x02) >> 1)
+// ...
+
+// Cho user struct 100 bytes, 8 booleans = 8 bytes
+// Tiết kiệm 7 bytes = 7% memory
+// Trade for: code phức tạp, bug risk, debug khó
+```
+
+**Tại sao bad:** 7 bytes / 100 bytes = 7% memory trade-off cho code complexity 10×. Premature optimization (KU F00/10). Pick rõ ràng — chỉ bit-pack khi struct chiếm > 50% memory budget.
+
+### Anti-pattern 4 — Brute force "scale by RAM"
+
+```
+"Sort 1TB? Buy 1TB RAM."
+"Process 100B rows? Spark cluster 100 nodes RAM."
+```
+
+**Tại sao bad:** RAM cost ~$5/GB cloud monthly = $5K/TB/month. Disk ~$0.05/GB = $50/TB. **External-memory algorithms** (Spark shuffle, mergesort) handle TB data với GB RAM. Aggarwal-Vitter EM model = senior knowledge.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Time complexity** = số operations as function of n.
@@ -252,6 +359,26 @@ Energy = time × processor power. Mobile + sustainability concerns.
 - **[F01/08 Recursion](./08-recursion-iteration.md)** — call stack = space
 - **[F01/10 Compression](./10-compression-basics.md)** — CPU/storage trade
 - **[F00/12 Trade-off triangle](../F00-mental-models/12-trade-off-triangle.md)** — speed/cost/quality
+
+---
+
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` — chapters on dynamic programming (memoization), randomized algorithms (sketches).
+- **OSTEP (Wisconsin)** → `OSTEP_vm-paging.pdf`, `OSTEP_vm-beyondphys.pdf` — memory hierarchy (RAM vs disk swap) ảnh hưởng space complexity.
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapter 4 — Skiplists (probabilistic data structure trade-off).
+
+📖 **Sách commercial:**
+- CLRS Chapter 3 — Growth of Functions (time + space analysis foundation).
+- Petrov, *Database Internals* — chapter on external sort + B-tree page management.
+
+📄 **Paper gốc:**
+- Bloom (1970), *"Space/Time Trade-offs in Hash Coding with Allowable Errors"*, CACM. [DOI 10.1145/362686.362692](https://doi.org/10.1145/362686.362692).
+- Flajolet et al. (2007), *"HyperLogLog: the analysis of a near-optimal cardinality estimation algorithm"*, AofA.
+- Cormode & Muthukrishnan (2005), *"An Improved Data Stream Summary: The Count-Min Sketch and its Applications"*.
+- Aggarwal & Vitter (1988), *"The Input/Output Complexity of Sorting and Related Problems"*, CACM — EM model foundation.
 
 ---
 

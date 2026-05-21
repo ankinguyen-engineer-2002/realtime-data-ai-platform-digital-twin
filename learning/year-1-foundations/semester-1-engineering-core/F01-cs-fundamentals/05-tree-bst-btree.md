@@ -49,6 +49,182 @@
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 1 tỷ rows trên disk, làm sao **lookup 1 row trong < 10ms** mà không scan toàn bộ + chịu được **insert/delete** liên tục?
+>
+> **Why hard:** Hash table mất ordering. Sorted array không cho insert efficient. BST in-memory không phù hợp với disk vì mỗi node access = 1 random disk seek (~10ms HDD, ~100μs SSD). Random seek cho cây depth 30 = 300ms HDD → user bỏ trang.
+>
+> **What we need:** Một **disk-friendly tree** — wide branching factor (node chứa nhiều key) → fewer levels (depth ~3-4) → fewer seeks. Đó là **B-tree** (Bayer 1972). Và khi workload write-heavy hơn read → flip the trade-off → **LSM-tree** (O'Neil 1996).
+
+→ B-tree và LSM-tree không phải "variants" — chúng là 2 đáp án cho **cùng câu hỏi**: how to maintain sorted data on disk?
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Binary Search Tree (BST)** — concept ngấm vào CS từ những năm 1960s. **Hibbard (1962)** publish analysis trên *Communications of the ACM*. Worst-case Θ(n) khi insertion order là sorted → motivation cho self-balancing.
+- **AVL tree (1962)** — **Adelson-Velsky & Landis** (Soviet Union) — tree tự balance đầu tiên. Tên từ chữ đầu của 2 tác giả.
+- **Red-Black tree (1972)** — **Rudolf Bayer** (TU München) — đơn giản hơn AVL, ít rotation. Today: Linux kernel, Java TreeMap, C++ std::map.
+- **B-tree (1972)** — **Rudolf Bayer & Ed McCreight** (Boeing Research Labs) — designed cho disk-based databases. "B" là một bí mật — Bayer nói có thể là "Boeing", "balanced", "Bayer" hoặc "broad". Today: **mọi RDBMS** (Postgres, MySQL, SQL Server, Oracle) dùng B-tree (thực ra B+tree).
+- **B+tree (1979)** — variant của B-tree với data chỉ ở leaves + leaves linked list. Tăng range scan performance.
+- **LSM-tree (1996)** — **Patrick O'Neil et al.** — *"The Log-Structured Merge-Tree"*. Designed cho write-heavy workload. Today: Cassandra, RocksDB, LevelDB, ScyllaDB, HBase, Iceberg (data file compaction).
+- **Today (2026):** B-tree và LSM-tree thống trị 95% storage engine. Bayer (B-tree) qua đời 2024 ở tuổi 89; di sản của ông chạy trong mọi database thế giới đang dùng.
+
+---
+
+## 🧮 Pseudocode — BST + B-tree + LSM core ops  *(v3 — Erickson UIUC style)*
+
+### BST insert + lookup
+
+```
+BST_INSERT(root, key, value):
+    if root = NIL then
+        return NEW_NODE(key, value)
+    if key < root.key then
+        root.left ← BST_INSERT(root.left, key, value)
+    else if key > root.key then
+        root.right ← BST_INSERT(root.right, key, value)
+    else
+        root.value ← value          《update existing》
+    return root
+
+BST_LOOKUP(root, key):
+    if root = NIL then return NOT_FOUND
+    if key = root.key then return root.value
+    if key < root.key then return BST_LOOKUP(root.left, key)
+    else return BST_LOOKUP(root.right, key)
+```
+
+### B-tree search (m-way)
+
+```
+BTREE_SEARCH(node, key):
+    i ← 1
+    while i ≤ node.numkeys and key > node.keys[i]
+        i ← i + 1
+    if i ≤ node.numkeys and key = node.keys[i] then
+        return (node, i)
+    if node.isleaf then
+        return NOT_FOUND
+    《Disk read children — typically m=100..1000》
+    return BTREE_SEARCH(DISK_READ(node.children[i]), key)
+```
+
+### LSM write path
+
+```
+LSM_PUT(tree, key, value):
+    APPEND(tree.wal, (key, value))           《WAL append for crash recovery》
+    PUT(tree.memtable, key, value)           《In-memory sorted structure》
+    if SIZE(tree.memtable) > MEMTABLE_LIMIT then
+        FLUSH_TO_SSTABLE(tree.memtable, tree.level0)
+        tree.memtable ← NEW_MEMTABLE()
+        SCHEDULE(COMPACT_BACKGROUND, tree)
+
+LSM_GET(tree, key):
+    《Check memtable first》
+    v ← LOOKUP(tree.memtable, key)
+    if v ≠ NOT_FOUND then return v
+    《Check L0, L1, ..., LN in order》
+    for level ← 0 to MAX_LEVEL
+        for each sstable in tree.levels[level]
+            《Bloom filter check first to skip》
+            if not MAYBE_CONTAINS(sstable.bloom, key) then continue
+            v ← LOOKUP_SSTABLE(sstable, key)
+            if v ≠ NOT_FOUND then return v
+    return NOT_FOUND
+```
+
+→ LSM **trade read latency for write throughput**. Bloom filter giảm false-positive lookup cost.
+
+---
+
+## 📐 Recurrence equations  *(v3 — formal analysis)*
+
+| Tree | Recurrence | Solution | Note |
+|---|---|---|---|
+| Balanced BST search | `T(n) = T(n/2) + Θ(1)` | Θ(log n) | log₂ |
+| Skewed BST search (worst) | `T(n) = T(n-1) + Θ(1)` | Θ(n) | bad insertion order |
+| B-tree (branching b) search | `T(n) = T(n/b) + Θ(b)` | Θ(b · log_b n) ≈ Θ(log n) | b ~100-1000 |
+| B-tree disk I/O | `D(n) = D(n/b) + 1` | Θ(log_b n) | I/O complexity (Aggarwal-Vitter 1988) |
+| LSM read (L levels) | `T(n) = L · (BloomCheck + SSTableLookup)` | Θ(L · log(n/L)) | bigger L = slower read |
+| LSM write amortized | `W = Θ(1)` per put | Θ(1) | actual disk write batched |
+| LSM compaction | `C(n) = 2 · C(n/2) + Θ(n)` | Θ(n log n) total work | over lifetime |
+
+→ B-tree designed cho **EM model** (External Memory, Aggarwal-Vitter): minimize disk I/O count, not CPU ops.
+
+---
+
+## 📊 Cost annotation table — 6 tree variants  *(v3 — Sedgewick Princeton style)*
+
+| Tree | Search (avg) | Search (worst) | Insert | Delete | Range scan | Best for |
+|---|---|---|---|---|---|---|
+| **Plain BST** | Θ(log n) | Θ(n) | Θ(log n)/Θ(n) | Θ(log n)/Θ(n) | Θ(n) inorder | demo only |
+| **AVL tree** | Θ(log n) | Θ(log n) | Θ(log n) | Θ(log n) | Θ(n) | strict balance, lookup-heavy |
+| **Red-Black tree** | Θ(log n) | Θ(2 log n) | Θ(log n) | Θ(log n) | Θ(n) | Linux kernel, Java TreeMap |
+| **B-tree (m-way)** | Θ(log_m n) | Θ(log_m n) | Θ(log_m n) | Θ(log_m n) | Θ(log_m n + k) | disk RDBMS |
+| **B+tree** | Θ(log_m n) | Θ(log_m n) | Θ(log_m n) | Θ(log_m n) | **Θ(log_m n + k)** ⚡ | Postgres/MySQL primary |
+| **LSM-tree** | Θ(L · log(n/L)) | Θ(L · log(n/L)) | Θ(1) amortized ⚡ | Θ(1) tombstone | sequential | Cassandra/RocksDB |
+
+`m` = branching factor (B-tree fanout), `L` = number of levels in LSM, `k` = result size.
+
+**Picking guide:**
+- In-memory + ordered iteration → **Red-Black tree** (Linux, Java)
+- Disk RDBMS primary index → **B+tree** (Postgres, MySQL)
+- Write-heavy + acceptable read penalty → **LSM-tree** (Cassandra, RocksDB, time-series DB)
+- Range queries dominant → **B+tree** (leaves linked)
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Insert sorted data vào plain BST
+
+```python
+# ❌ Insert 1, 2, 3, 4, ..., 1M vào plain BST
+root = None
+for i in range(1, 1_000_001):
+    root = bst_insert(root, i, i)
+# Result: skewed BST = linked list. Depth 1M. Lookup Θ(n) = 1M.
+# Worst case của plain BST.
+```
+
+**Tại sao bad:** Plain BST không balance → sorted insertion order → cây degenerate thành linked list. Pick **Red-Black** / **AVL** để auto-balance.
+
+### Anti-pattern 2 — LSM cho read-heavy workload
+
+```
+Workload: 95% read, 5% write, ordered range scan rare.
+Pick: Cassandra (LSM)?
+```
+
+**Tại sao bad:** LSM phải check L levels mỗi read → bloom filter giúp nhưng vẫn slower hơn B+tree single-seek. Pick **PostgreSQL (B+tree)** cho workload đó. LSM thắng khi write > read.
+
+### Anti-pattern 3 — B-tree với branching factor nhỏ
+
+```
+B-tree with m=4 trên disk → depth ≈ log₄(1B) ≈ 15
+B-tree with m=200 trên disk → depth ≈ log₂₀₀(1B) ≈ 4
+
+Pick m=4 cho "đơn giản"? ❌
+```
+
+**Tại sao bad:** Mỗi disk seek ~10ms HDD / ~100μs SSD. Depth 15 = 150ms vs Depth 4 = 40ms. B-tree thiết kế quanh **page size** (4-16KB) — chứa **càng nhiều key/node càng tốt**. Postgres default fillfactor=90%, fanout ~290.
+
+### Anti-pattern 4 — Forget LSM compaction → unbounded write amplification
+
+```
+Cassandra: tắt compaction để "save CPU"
+→ L0 ngày càng nhiều SSTables
+→ Read latency tăng theo số files
+→ Write amplification cũng tăng (sau cùng phải compact lại)
+```
+
+**Tại sao bad:** Compaction là **invariant** của LSM design. Skip compaction = lose LSM benefit. Tune compaction strategy (size-tiered / leveled / time-windowed), không tắt.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Tree** = recursive data structure với **root**, mỗi node có 0+ **children**. Mỗi node có 1 **parent** (except root). No cycle.
@@ -636,11 +812,25 @@ Tree structures pervasive:
 
 ---
 
-## 🌐 Đọc thêm (chính thống, hạn chế — 3 nguồn)
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
-- **Kleppmann DDIA Chapter 3** — best modern explanation of B-tree vs LSM. [Library](../../../../library/books/distributed-systems/Kleppmann_2017_Designing-Data-Intensive-Applications.pdf)
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_BST.pdf`, `Sedgewick_Princeton_BalancedBST.pdf` — visual rotations + Red-Black tree explanation.
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapters 6-7 (BinaryTrees, RandomBinarySearchTrees, ScapegoatTree, RedBlackTrees, BinaryHeap).
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` — Chapter on data structures + amortized analysis.
+
+📖 **Sách commercial:**
+- **Kleppmann DDIA Chapter 3** — best modern explanation of B-tree vs LSM. [Library](../../../../library/books/distributed-systems/Kleppmann_2017_Designing-Data-Intensive-Applications.pdf).
 - **CLRS Chapter 18** — B-tree formal treatment.
-- **RocksDB Wiki — LSM-tree implementation** — practical optimizations.
+- **Petrov, *Database Internals*** — modern storage engine deep-dive (B-tree variants, LSM compaction strategies).
+
+📄 **Paper gốc:**
+- Bayer & McCreight (1972), *"Organization and Maintenance of Large Ordered Indexes"*, *Acta Informatica*. [DOI 10.1007/BF00288683](https://doi.org/10.1007/BF00288683) — B-tree gốc.
+- O'Neil et al. (1996), *"The Log-Structured Merge-Tree (LSM-Tree)"*, *Acta Informatica*. [DOI 10.1007/s002360050048](https://doi.org/10.1007/s002360050048).
+- Aggarwal & Vitter (1988), *"The Input/Output Complexity of Sorting and Related Problems"* — EM model formal.
+- Adelson-Velsky & Landis (1962) — AVL tree original.
+- RocksDB Wiki — [github.com/facebook/rocksdb/wiki](https://github.com/facebook/rocksdb/wiki).
 
 ---
 

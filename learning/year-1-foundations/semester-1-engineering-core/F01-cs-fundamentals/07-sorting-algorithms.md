@@ -40,6 +40,227 @@ Bạn cần **xếp 100 cuốn sách** theo thứ tự ABC trên kệ.
 
 ---
 
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 1B records cần sort theo 1 column, làm sao **đảm bảo Θ(n log n) trong mọi trường hợp** + **stable** (giữ thứ tự cũ cho equal keys) + **in-place** (RAM hạn chế)?
+>
+> **Why hard:** Quicksort fast nhưng Θ(n²) worst-case + unstable. Mergesort Θ(n log n) guarantee + stable nhưng tốn Θ(n) extra memory. Heapsort in-place + Θ(n log n) nhưng cache-unfriendly + unstable. Không một algorithm thắng cả 3 trade-off.
+>
+> **What we need:** Hiểu **hybrid sort** — production code (Python TimSort, Java DualPivotQuicksort, Linux kernel) combine 2-3 algorithms để cover edge case. Pure textbook algorithm không bao giờ dùng raw trong production.
+
+→ Lower bound **comparison-based sorting = Ω(n log n)** đã proven — không thuật toán nào beat điều này. Chỉ radix sort beat bằng cách **không so sánh** (dùng cấu trúc key).
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Hollerith sorting machine (1887)** — Herman Hollerith dùng punch card mechanical sort cho US census 1890. Phương pháp sau này được gọi là **radix sort**.
+- **Bubble sort (1956)** — "bubble" do small elements nổi lên như bong bóng. Authors có lẽ là Friend (1956). Worst sort algorithm — dùng để dạy là chính.
+- **Mergesort (1945)** — **John von Neumann** invent khi build EDVAC computer. Designed quanh tape storage limitation — sequential read, no random access.
+- **Quicksort (1959-1961)** — **Tony Hoare** (British) phát minh ở Moscow khi học Russian, dùng để sort câu Russian dictionary. Là sorting algorithm nổi tiếng nhất + dạy nhiều nhất thế giới.
+- **Heapsort (1964)** — **J.W.J. Williams**. Build trên binary heap data structure.
+- **TimSort (2002)** — **Tim Peters** for CPython. Hybrid (mergesort + insertion sort) detect existing "runs" (sub-sequences đã sorted). Default sort trong Python, Java 7+, Android.
+- **Pdqsort (2014)** — **Orson Peters**. Pattern-defeating quicksort, default trong Rust.
+- **Today (2026):** TimSort thắng trong real workload vì real data thường partially sorted. Pure quicksort/mergesort = textbook.
+
+---
+
+## 🧮 Pseudocode — 5 algorithms classic  *(v3 — Erickson UIUC style)*
+
+### Bubble sort (educational only)
+
+```
+BUBBLESORT(A[1..n]):
+    for i ← 1 to n − 1
+        for j ← 1 to n − i
+            if A[j] > A[j+1] then
+                SWAP(A[j], A[j+1])
+```
+
+### Insertion sort (good for small n, almost-sorted)
+
+```
+INSERTIONSORT(A[1..n]):
+    for i ← 2 to n
+        key ← A[i]
+        j ← i − 1
+        while j ≥ 1 and A[j] > key
+            A[j+1] ← A[j]
+            j ← j − 1
+        A[j+1] ← key
+```
+
+### Mergesort
+
+```
+MERGESORT(A[1..n]):
+    if n ≤ 1 then return A
+    mid ← ⌊n/2⌋
+    L ← MERGESORT(A[1..mid])
+    R ← MERGESORT(A[mid+1..n])
+    return MERGE(L, R)
+
+MERGE(L, R):
+    result ← EMPTY
+    i ← 1; j ← 1
+    while i ≤ length(L) and j ≤ length(R)
+        if L[i] ≤ R[j] then
+            APPEND(result, L[i]); i ← i + 1
+        else
+            APPEND(result, R[j]); j ← j + 1
+    APPEND_ALL(result, L[i..]); APPEND_ALL(result, R[j..])
+    return result
+```
+
+### Quicksort (Hoare partition)
+
+```
+QUICKSORT(A[lo..hi]):
+    if lo < hi then
+        p ← PARTITION(A, lo, hi)
+        QUICKSORT(A[lo..p])
+        QUICKSORT(A[p+1..hi])
+
+PARTITION(A, lo, hi):
+    pivot ← A[lo]                           《pivot choice critical》
+    i ← lo − 1; j ← hi + 1
+    loop
+        repeat i ← i + 1 until A[i] ≥ pivot
+        repeat j ← j − 1 until A[j] ≤ pivot
+        if i ≥ j then return j
+        SWAP(A[i], A[j])
+```
+
+### Heapsort
+
+```
+HEAPSORT(A[1..n]):
+    BUILDHEAP(A)                            《Θ(n) — surprisingly not Θ(n log n)》
+    for i ← n down to 2
+        SWAP(A[1], A[i])
+        SIFTDOWN(A[1..i−1], 1)
+```
+
+### TimSort (sketch — Python real algorithm)
+
+```
+TIMSORT(A[1..n]):
+    runs ← DETECT_RUNS(A)                   《existing sorted/reverse sub-sequences》
+    while runs has ≥ 2 elements
+        《Merge runs satisfying invariant size(top) > size(top-1) + size(top-2)》
+        MERGE_TOP_RUNS(runs)
+    return A
+```
+
+---
+
+## 📐 Recurrence equations  *(v3 — formal analysis)*
+
+| Algorithm | Recurrence | Best | Avg | Worst | Note |
+|---|---|---|---|---|---|
+| Bubble sort | `T(n) = T(n−1) + Θ(n)` | Θ(n²) | Θ(n²) | Θ(n²) | early-exit can give Θ(n) on sorted |
+| Insertion sort | `T(n) = T(n−1) + Θ(n)` | Θ(n) sorted input | Θ(n²) | Θ(n²) | thắng cho n < ~50 |
+| Mergesort | `T(n) = 2·T(n/2) + Θ(n)` | Θ(n log n) | Θ(n log n) | Θ(n log n) | Master case 2 |
+| Quicksort | `T(n) = T(n−1) + Θ(n)` worst (bad pivot) | Θ(n log n) | Θ(n log n) | Θ(n²) | random pivot expected Θ(n log n) |
+| Quicksort balanced | `T(n) = 2·T(n/2) + Θ(n)` | Θ(n log n) | Θ(n log n) | Θ(n log n) | với random/median-of-three pivot |
+| Heapsort | `T(n) = Θ(n) + n·Θ(log n)` | Θ(n log n) | Θ(n log n) | Θ(n log n) | build heap Θ(n), then n siftdowns |
+| Radix sort | `T(n,k) = Θ(n · k)` | Θ(n·k) | Θ(n·k) | Θ(n·k) | k = key length, not comparison-based |
+| TimSort | hybrid | Θ(n) ⚡ | Θ(n log n) | Θ(n log n) | best case = nearly sorted |
+
+**Comparison-based lower bound proof:** Decision tree với n! leaves cần depth ≥ log₂(n!) = Θ(n log n) → **bất kỳ** comparison sort phải Ω(n log n) so sánh. CLRS Chapter 8 chứng minh hoàn chỉnh.
+
+---
+
+## 📊 Cost annotation table — 7 sorting algorithms  *(v3 — Sedgewick Princeton style)*
+
+| Algorithm | Best | Avg | Worst | Space | Stable | In-place | Use case |
+|---|---|---|---|---|:---:|:---:|---|
+| Bubble sort | Θ(n) | Θ(n²) | Θ(n²) | Θ(1) | ✓ | ✓ | educational only |
+| Selection sort | Θ(n²) | Θ(n²) | Θ(n²) | Θ(1) | ✗ | ✓ | minimal swaps |
+| Insertion sort | Θ(n) | Θ(n²) | Θ(n²) | Θ(1) | ✓ | ✓ | small n, nearly sorted |
+| Shell sort | Θ(n log n) | Θ(n^1.3) | Θ(n^1.5) | Θ(1) | ✗ | ✓ | embedded systems |
+| **Mergesort** | Θ(n log n) | Θ(n log n) | Θ(n log n) | Θ(n) | ✓ ⚡ | ✗ | external sort (disk), stable required |
+| **Quicksort** | Θ(n log n) | Θ(n log n) | Θ(n²) | Θ(log n) stack | ✗ | ✓ | general-purpose, cache-friendly |
+| **Heapsort** | Θ(n log n) | Θ(n log n) | Θ(n log n) | Θ(1) ⚡ | ✗ | ✓ | hard real-time, worst-case guarantee |
+| **TimSort** ⚡ | Θ(n) | Θ(n log n) | Θ(n log n) | Θ(n) | ✓ | ✗ | Python/Java default, real data |
+| **Radix sort** | Θ(n·k) | Θ(n·k) | Θ(n·k) | Θ(n+k) | ✓ | ✗ | integer keys, GPU sort |
+
+**Picking guide:**
+- Python/Java `list.sort()` → already TimSort (don't reimplement)
+- C++ `std::sort` → Introsort (quicksort + heapsort fallback)
+- Rust `slice::sort` → Pdqsort
+- Spark/Hadoop external sort 1TB on 16GB RAM → **Mergesort** + disk spill
+- Sort 1B integer keys → **Radix sort** if range bounded
+- Top-K only (k ≪ n) → **partial sort** via heap, Θ(n log k)
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Reimplement sort thay vì xài built-in
+
+```python
+# ❌ "Tôi tự implement quicksort cho nhanh hơn"
+def my_quicksort(arr):
+    if len(arr) <= 1: return arr
+    pivot = arr[0]
+    return my_quicksort([x for x in arr[1:] if x < pivot]) + [pivot] + my_quicksort([x for x in arr[1:] if x >= pivot])
+
+# So với list.sort() = TimSort optimized C code
+# my_quicksort 1M list: ~30 giây
+# list.sort() 1M list: ~0.3 giây = 100× nhanh hơn
+```
+
+**Tại sao bad:** TimSort optimized C + detect runs + insertion sort tail + memory-efficient. Pure-Python quicksort tạo nhiều list temporary + recursion overhead. **Default to built-in.**
+
+### Anti-pattern 2 — Quicksort với pivot là `A[0]` trên sorted input
+
+```python
+# ❌ pivot = first element trên sorted array
+def bad_quicksort(arr):
+    if len(arr) <= 1: return arr
+    pivot = arr[0]
+    less = [x for x in arr[1:] if x < pivot]
+    greater = [x for x in arr[1:] if x >= pivot]
+    return bad_quicksort(less) + [pivot] + bad_quicksort(greater)
+
+# Input [1,2,3,...,1M] sorted → pivot luôn min → partition Θ(n) mỗi level → Θ(n²)
+# 1M sorted → 10^12 ops → ~hours
+```
+
+**Tại sao bad:** Worst-case Θ(n²) là **deterministic** với pivot first-element + sorted input. Pick **random pivot** hoặc **median-of-three** để expected Θ(n log n).
+
+### Anti-pattern 3 — Bubble sort production
+
+```python
+# ❌ Bubble sort cho 100K elements
+def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(n - i - 1):
+            if arr[j] > arr[j+1]:
+                arr[j], arr[j+1] = arr[j+1], arr[j]
+    return arr
+# 100K elements = 10^10 ops = ~3 giờ
+# TimSort = 100K · log 100K ≈ 1.7M ops = milliseconds
+```
+
+**Tại sao bad:** Θ(n²) trong tất cả case (best/avg/worst). Educational only.
+
+### Anti-pattern 4 — Sort khi không cần
+
+```sql
+-- ❌ SELECT TOP 10 customers by revenue:
+SELECT * FROM customers
+ORDER BY revenue DESC
+LIMIT 10;
+-- Nếu Postgres không có index trên revenue → sort toàn bộ 100M rows → 30s
+```
+
+**Tại sao bad:** Top-K không cần full sort. Pick **heap of size K** = Θ(n log K) thay vì Θ(n log n). Postgres `LIMIT` với index DESC = Θ(K). **Index + LIMIT** giảm 30s → 10ms.
+
+---
+
 ## 📖 Định nghĩa chính thức
 
 **Sort** = arrange elements theo total order (defined by comparator).
@@ -358,9 +579,27 @@ Used in Python `sorted()`, Java `Arrays.sort()` for objects.
 
 ---
 
-## 🌐 Đọc thêm
-- CLRS Chapter 7-8.
-- TimSort original spec (Tim Peters).
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
+
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Sedgewick Princeton slides** → 4 PDFs trực tiếp:
+  - `Sedgewick_Princeton_ElementarySorts.pdf` — bubble/selection/insertion/shell
+  - `Sedgewick_Princeton_Mergesort.pdf` — visualization + bottom-up vs top-down
+  - `Sedgewick_Princeton_Quicksort.pdf` — partition + 3-way + median-of-three
+  - `Sedgewick_Princeton_PriorityQueues.pdf` — heap + heapsort
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` Chapter 1 (Recursion: mergesort, quicksort, selection in worst-case linear time).
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapter 11 (Sorting Algorithms — mergesort, quicksort, heapsort, comparison-based lower bound).
+
+📖 **Sách commercial:**
+- CLRS Chapter 6-8 — heap, heapsort, quicksort, comparison lower bound proof.
+- Sedgewick & Wayne, *Algorithms 4e* — companion book của các slides Princeton.
+
+📄 **Paper gốc + spec:**
+- Hoare (1961), *"Algorithm 64: Quicksort"*, CACM. [DOI 10.1145/366622.366644](https://doi.org/10.1145/366622.366644) — bài báo gốc.
+- Williams (1964), *"Algorithm 232: Heapsort"*, CACM.
+- Peters (2002), [*"TimSort spec"*](https://github.com/python/cpython/blob/main/Objects/listsort.txt) — CPython official.
+- Peters O. (2014), *"pdqsort"* — Rust default sort.
 
 **Đã đọc xong?**
 ✅ Tick → [F01/08 Recursion + iteration](./08-recursion-iteration.md).
