@@ -91,3 +91,6 @@ benchmarks/scratch/
 !.env.example
 !.gitignore
 !.github/
+
+# Library scan cache (regenerable)
+library/.scan-cache/
