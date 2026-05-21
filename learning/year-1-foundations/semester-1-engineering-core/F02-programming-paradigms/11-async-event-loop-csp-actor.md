@@ -43,13 +43,13 @@
 
 ## 🧩 The Crux of the Problem  *(OSTEP-style framing)*
 
-> **Core question:** Thread-with-locks (KU 10) work nhưng dễ bug + expensive (1 thread ~8MB stack). Cần concurrency cho 10K-100K simultaneous connections (C10K problem) — làm sao?
+> **Câu hỏi cốt lõi:** Thread + locks (KU 10) work nhưng dễ bug + tốn tài nguyên (1 thread ~8MB stack). Cần concurrency cho 10K-100K simultaneous connections (vấn đề "C10K") — làm sao?
 >
-> **Why hard:** Threads scale kém: 10K threads = 80GB RAM cho stack alone, context switch overhead. Locks tạo deadlock + race. Need lighter-weight + safer abstractions.
+> **Vì sao khó:** Thread scale kém: 10K threads = 80GB RAM cho stack alone, context switch overhead lớn. Locks tạo deadlock + race. Cần abstraction lighter-weight + safer hơn.
 >
-> **What we need:** Hiểu 3 alternative models — **async/await** (one thread, cooperative, I/O), **CSP/channels** (goroutines + channels, Go), **actor model** (isolated state + messages, Erlang). Each solves different problem.
+> **Điều ta cần:** Hiểu 3 model alternative — **async/await** (1 thread, cooperative, I/O bound), **CSP/channels** (goroutines + channels, Go), **actor model** (isolated state + messages, Erlang). Mỗi model giải quyết vấn đề khác.
 
-→ **Modern data infrastructure** xài hybrid: Postgres = process-per-conn (legacy), Node.js = async, Go = CSP, Erlang/Elixir = actor, Rust = ownership + tokio. **Knowing 4 models** = pick correctly per system.
+→ **Data infrastructure modern** dùng hybrid: Postgres = process-per-conn (legacy), Node.js = async, Go = CSP, Erlang/Elixir = actor, Rust = ownership + tokio. **Biết 4 model** = pick đúng cho từng system.
 
 ---
 
@@ -404,7 +404,7 @@ async def slow_task():
 await slow_task()
 ```
 
-**Tại sao bad:** Sync sleep blocks entire event loop. Pick:
+**Vì sao bad:** Sync sleep blocks entire event loop. Pick:
 ```python
 await asyncio.sleep(5)   # async sleep, yields to event loop
 ```
@@ -416,7 +416,7 @@ async def hash_password(pw):
     return bcrypt.hashpw(pw, salt)   # ❌ CPU heavy ~100ms, blocks
 ```
 
-**Tại sao bad:** Async = cooperative, no preemption. Heavy CPU = starves other coros. Pick: offload to threadpool:
+**Vì sao bad:** Async = cooperative, no preemption. Heavy CPU = starves other coros. Pick: offload to threadpool:
 ```python
 import asyncio
 async def hash_password(pw):
@@ -440,7 +440,7 @@ for v := range ch {  // ❌ blocks forever after 10 values
 }
 ```
 
-**Tại sao bad:** `for range` waits for `close()`. Pick: defer close, or signal end with sentinel.
+**Vì sao bad:** `for range` waits for `close()`. Pick: defer close, or signal end with sentinel.
 
 ### Anti-pattern 4 — Actor with synchronous DB call
 
@@ -454,7 +454,7 @@ class UserActor extends Actor {
 }
 ```
 
-**Tại sao bad:** Actor processes 1 message at a time. Blocking call = mailbox backed up. Pick: async DB driver, or dedicate actor pool for DB.
+**Vì sao bad:** Actor processes 1 message at a time. Blocking call = mailbox backed up. Pick: async DB driver, or dedicate actor pool for DB.
 
 ### Anti-pattern 5 — Send too many messages
 
@@ -465,7 +465,7 @@ for (i <- 1 to 10_000_000) {
 }
 ```
 
-**Tại sao bad:** Mailbox grows unbounded → OOM. Pick: batch messages, use bounded mailbox with backpressure.
+**Vì sao bad:** Mailbox grows unbounded → OOM. Pick: batch messages, use bounded mailbox with backpressure.
 
 ---
 

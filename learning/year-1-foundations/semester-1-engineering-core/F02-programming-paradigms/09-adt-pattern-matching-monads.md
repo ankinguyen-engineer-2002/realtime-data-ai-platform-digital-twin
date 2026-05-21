@@ -76,13 +76,13 @@ do
 
 ## 🧩 The Crux of the Problem  *(OSTEP-style framing)*
 
-> **Core question:** Khi modeling domain phức tạp (Order với 5 state, JSON với nested values, AST của compiler, network message types), làm sao **enforce exhaustiveness** + **make illegal states unrepresentable** + **compose error handling**?
+> **Câu hỏi cốt lõi:** Khi model domain phức tạp (Order với 5 state, JSON với nested values, AST compiler, network message types), làm sao (a) **enforce exhaustiveness** — compiler bắt nếu thiếu case, (b) **make illegal states unrepresentable** — không tạo được state sai từ đầu, (c) **compose error handling**?
 >
-> **Why hard:** OOP class hierarchy + `instanceof` checks không exhaustive (compiler không biết). Null/Optional propagation tediously verbose. Throwing exceptions = control flow + lose type safety.
+> **Vì sao khó:** OOP class hierarchy + `instanceof` checks không exhaustive (compiler không biết bạn quên case nào). `null`/`Optional` propagation rất verbose. Throw exceptions = mix control flow + mất type safety.
 >
-> **What we need:** **ADT** to express "this OR that" (sum) + "this AND that" (product). **Pattern matching** to deconstruct safely. **Monad** to chain operations qua context (Maybe for null, Either for errors, Future for async, IO for effects).
+> **Điều ta cần:** **ADT** để diễn tả "cái này HOẶC cái kia" (sum) + "cái này VÀ cái kia" (product). **Pattern matching** để deconstruct an toàn. **Monad** để chain operations qua context (Maybe cho null, Either cho errors, Future cho async, IO cho effects).
 
-→ **Rust, Swift, Kotlin, Scala 3, TypeScript** all adopt ADT + pattern matching từ Haskell/ML lineage. **Java 21 (2023)** finally add pattern matching (sealed classes + record patterns).
+→ **Rust, Swift, Kotlin, Scala 3, TypeScript** đều adopt ADT + pattern matching từ dòng dõi Haskell/ML. **Java 21 (2023)** cuối cùng cũng có pattern matching (sealed classes + record patterns).
 
 ---
 
@@ -469,7 +469,7 @@ String describe(Status s) {
 }
 ```
 
-**Tại sao bad:** Without exhaustiveness, new variant silently broken. Pick: Rust/Scala/Java 21 sealed types.
+**Vì sao bad:** Without exhaustiveness, new variant silently broken. Pick: Rust/Scala/Java 21 sealed types.
 
 ### Anti-pattern 2 — Stringly-typed enum
 
@@ -483,7 +483,7 @@ if order.status == "completed":  # never True
     ship()
 ```
 
-**Tại sao bad:** String typos undetected. Pick **enum** or **ADT**:
+**Vì sao bad:** String typos undetected. Pick **enum** or **ADT**:
 ```python
 from enum import Enum
 class OrderStatus(Enum):
@@ -505,7 +505,7 @@ User u = findUser("bad");
 u.getName();   // NullPointerException
 ```
 
-**Tại sao bad:** Compiler doesn't enforce null check. Pick `Optional<User>` (Java 8+) or use Kotlin nullable types.
+**Vì sao bad:** Compiler doesn't enforce null check. Pick `Optional<User>` (Java 8+) or use Kotlin nullable types.
 
 ### Anti-pattern 4 — Catching exception for control flow
 
@@ -519,7 +519,7 @@ def parse_int_or_default(s, default):
 # Exception machinery 100x slower than condition check
 ```
 
-**Tại sao bad:** Exceptions designed for **exceptional** cases. For predictable failures, use **Result/Either**:
+**Vì sao bad:** Exceptions designed for **exceptional** cases. For predictable failures, use **Result/Either**:
 ```rust
 fn parse_int_or_default(s: &str, default: i32) -> i32 {
     s.parse().unwrap_or(default)   // Result-based, fast
@@ -538,7 +538,7 @@ findUser email >>= \user ->
                 else fail "no balance"
 ```
 
-**Tại sao bad:** Hard to read. Pick **do-notation**:
+**Vì sao bad:** Hard to read. Pick **do-notation**:
 ```haskell
 do
     user <- findUser email

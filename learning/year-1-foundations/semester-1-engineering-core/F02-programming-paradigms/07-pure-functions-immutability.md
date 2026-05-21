@@ -53,13 +53,13 @@ def increment(counter: int) -> int:
 
 ## 🧩 The Crux of the Problem  *(OSTEP-style framing)*
 
-> **Core question:** Cho 1 function, làm sao biết nó **an toàn để chạy parallel** + **safe to cache** + **easy to test**?
+> **Câu hỏi cốt lõi:** Cho 1 function, làm sao biết nó **an toàn chạy parallel** + **safe cache** + **dễ test**?
 >
-> **Why hard:** Imperative code có **hidden state** — global vars, file system, network, database. Function `compute(x)` có thể return khác lần thứ 2 vì state bên ngoài đổi. → Race condition trong concurrent code. Bug hard to reproduce.
+> **Vì sao khó:** Code imperative có **hidden state** — biến global, file system, network, database. Function `compute(x)` có thể return giá trị khác lần thứ 2 vì state bên ngoài đổi → race condition trong code concurrent. Bug khó reproduce.
 >
-> **What we need:** **Pure function** + **immutability** giải quyết tất cả: pure function output deterministic → safe to parallelize, safe to cache, easy to test. Immutable data → no race condition. Đây là **why FP shine cho big data + concurrent systems**.
+> **Điều ta cần:** **Pure function** + **immutability** giải quyết tất cả: pure function output deterministic → safe parallel, safe cache, dễ test. Immutable data → không có race condition. Đây là **lý do FP shine cho big data + concurrent systems**.
 
-→ **Spark, Flink, MapReduce đều dùng immutable data.** Đó là lý do parallelize bigger-than-RAM datasets được. Java mutable List = chết khi distribute.
+→ **Spark, Flink, MapReduce đều dùng immutable data.** Đó là lý do parallelize bigger-than-RAM datasets được. Java mutable `List` = chết khi distribute.
 
 ---
 
@@ -319,7 +319,7 @@ result = add_default(my_list)
 # my_list now [1, 2, 3, "default"] — caller surprised
 ```
 
-**Tại sao bad:** Hidden side effect breaks caller's assumption. Pick:
+**Vì sao bad:** Hidden side effect breaks caller's assumption. Pick:
 ```python
 # ✅ Return new list
 def with_default(items: list) -> list:
@@ -338,7 +338,7 @@ def calculate_tax(amount: Decimal) -> Decimal:
 # Cache breaks
 ```
 
-**Tại sao bad:** Pure function = output depends only on input. Pick: pass TAX_RATE as parameter.
+**Vì sao bad:** Pure function = output depends only on input. Pick: pass TAX_RATE as parameter.
 
 ### Anti-pattern 3 — Singleton mutable state in tests
 
@@ -353,7 +353,7 @@ class TestUser:
         assert User.objects.count() == 1   # might be 0 if run first
 ```
 
-**Tại sao bad:** Tests have order-dependency from mutable shared state. Pick: rollback transaction or in-memory DB per test.
+**Vì sao bad:** Tests have order-dependency from mutable shared state. Pick: rollback transaction or in-memory DB per test.
 
 ### Anti-pattern 4 — Defensive copy bloat
 
@@ -367,7 +367,7 @@ def calculate(data: list) -> int:
 # 3 copies for 1 calculation
 ```
 
-**Tại sao bad:** If data already immutable (tuple, frozen list), no need copy. Pick: use immutable types from start.
+**Vì sao bad:** If data already immutable (tuple, frozen list), no need copy. Pick: use immutable types from start.
 
 ### Anti-pattern 5 — Hidden mutability in "immutable" wrapper
 
@@ -382,7 +382,7 @@ cfg.settings["debug"] = True   # mutates internal dict!
 # Frozen dataclass only prevents reassign cfg.settings, not mutation of dict
 ```
 
-**Tại sao bad:** Shallow immutability. Pick: use `MappingProxyType` or `frozendict` for inner immutability.
+**Vì sao bad:** Shallow immutability. Pick: use `MappingProxyType` or `frozendict` for inner immutability.
 
 ---
 

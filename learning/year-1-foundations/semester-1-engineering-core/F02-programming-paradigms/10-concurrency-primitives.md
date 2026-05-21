@@ -58,13 +58,13 @@ def withdraw(amount):
 
 ## 🧩 The Crux of the Problem  *(OSTEP-style framing)*
 
-> **Core question:** Cho 8 CPU cores + workload parallelizable, làm sao chạy **đồng thời** + safely **share state** giữa các thread mà không tạo race condition / deadlock / livelock?
+> **Câu hỏi cốt lõi:** Cho 8 CPU cores + workload parallelize được, làm sao chạy **đồng thời** + **chia sẻ state an toàn** giữa các thread mà không tạo race condition / deadlock / livelock?
 >
-> **Why hard:** Modern CPU **reorder memory operations** for perf. Without memory barriers, thread A's writes invisible to thread B. Plus shared mutable state = exponential complexity (n threads × m locks = n×m interaction patterns).
+> **Vì sao khó:** CPU modern **reorder memory operations** để tối ưu perf. Không có memory barrier, dữ liệu thread A ghi sẽ vô hình với thread B. Plus shared mutable state = complexity bùng nổ (n threads × m locks = n×m kiểu tương tác).
 >
-> **What we need:** Hiểu 4 hazards (data race, deadlock, livelock, starvation) + 5 primitives (mutex, semaphore, condition variable, atomic, RWLock) + memory ordering models. Plus biết: **immutable + message passing thường tốt hơn lock-based**.
+> **Điều ta cần:** Hiểu 4 hazards (data race, deadlock, livelock, starvation) + 5 primitives (mutex, semaphore, condition variable, atomic, RWLock) + memory ordering models. Plus quan trọng: **immutable + message passing thường tốt hơn lock-based** (xem KU 11).
 
-→ **OSTEP Concurrency Part 2** (Wisconsin) là bài đọc tiêu chuẩn. Modern: Go channels, Erlang actors, Rust ownership eliminate large class of bugs.
+→ **OSTEP Concurrency Part 2** (Wisconsin, đã có trong library) là bài đọc tiêu chuẩn. Modern: Go channels, Erlang actors, Rust ownership eliminate cả nhóm bugs này.
 
 ---
 
@@ -418,7 +418,7 @@ if balance >= amount:        # CHECK
     balance -= amount         # ACT — but another thread might withdraw between!
 ```
 
-**Tại sao bad:** Time-of-check vs time-of-use (TOCTOU). Pick atomic compare-and-subtract or lock entire block.
+**Vì sao bad:** Time-of-check vs time-of-use (TOCTOU). Pick atomic compare-and-subtract or lock entire block.
 
 ### Anti-pattern 2 — Forget to release lock on exception
 
@@ -429,7 +429,7 @@ process();   // ← if throws, lock never released
 lock.unlock();
 ```
 
-**Tại sao bad:** Lock leak → all future threads block. Pick **try-finally**:
+**Vì sao bad:** Lock leak → all future threads block. Pick **try-finally**:
 ```java
 lock.lock();
 try {
@@ -460,7 +460,7 @@ class Singleton {
 }
 ```
 
-**Tại sao bad:** Without `volatile`, JVM may reorder constructor — other thread sees partial instance. Pick `volatile` (Java 5+) or **enum singleton** (Bloch Item 3).
+**Vì sao bad:** Without `volatile`, JVM may reorder constructor — other thread sees partial instance. Pick `volatile` (Java 5+) or **enum singleton** (Bloch Item 3).
 
 ### Anti-pattern 4 — Lock held during I/O
 
@@ -471,7 +471,7 @@ with cache_lock:
     cache[url] = data
 ```
 
-**Tại sao bad:** Other threads block 200ms. Pick: release lock during I/O.
+**Vì sao bad:** Other threads block 200ms. Pick: release lock during I/O.
 ```python
 data = http_get(url)             # do I/O without lock
 with cache_lock:
@@ -492,7 +492,7 @@ def worker(items):
             shared_list.append(result)
 ```
 
-**Tại sao bad:** Lock contention. Pick: each worker produces own list, merge at end:
+**Vì sao bad:** Lock contention. Pick: each worker produces own list, merge at end:
 ```python
 def worker(items):
     return [process(item) for item in items]   # pure

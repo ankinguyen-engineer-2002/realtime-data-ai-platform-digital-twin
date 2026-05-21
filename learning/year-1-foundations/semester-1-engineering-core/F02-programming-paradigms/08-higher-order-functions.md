@@ -52,13 +52,13 @@ total = reduce(lambda a, b: a + b, numbers, 0)   # 15
 
 ## 🧩 The Crux of the Problem  *(OSTEP-style framing)*
 
-> **Core question:** Cho 1 collection của items, làm sao **diễn đạt transformations** (filter, map, aggregate) một cách **compose được** + **parallelize được** + **không viết loop bằng tay**?
+> **Câu hỏi cốt lõi:** Cho 1 collection items, làm sao **diễn tả transformation** (filter, map, aggregate) sao cho (a) **compose được**, (b) **parallelize được**, (c) **không phải viết loop bằng tay**?
 >
-> **Why hard:** Imperative loop `for x in items: ...` tightly couple "iterate" với "compute". Mỗi loop khác biệt nhau khó tách. Khó parallelize vì có state (accumulator). Khó test piece-wise.
+> **Vì sao khó:** Loop imperative `for x in items: ...` gắn chặt "iterate" với "compute". Mỗi loop khác nhau nên khó tách + reuse. Khó parallelize vì có state (accumulator). Khó test từng phần riêng.
 >
-> **What we need:** Abstract "iterate" ra khỏi "compute" → **HOF**. `map` = iterate + apply f. `filter` = iterate + keep if pred. `reduce` = iterate + combine. Each piece reusable, composable, pure.
+> **Điều ta cần:** Tách "iterate" ra khỏi "compute" → **HOF (Higher-Order Function)**. `map` = iterate + apply f. `filter` = iterate + giữ nếu pred true. `reduce` = iterate + combine. Mỗi phần reusable, composable, pure.
 
-→ **Spark DataFrame, pandas, dplyr (R), LINQ (C#)** — all built on HOF. Modern DE skill = think in HOF.
+→ **Spark DataFrame, pandas, dplyr (R), LINQ (C#)** — tất cả build trên HOF. Skill data engineer modern = nghĩ trong HOF, không nghĩ trong loop.
 
 ---
 
@@ -343,7 +343,7 @@ list(map(process, range(1000)))
 # counter? Maybe 1000, maybe wrong if parallel
 ```
 
-**Tại sao bad:** Map should be pure. Side effects break parallelization. Pick: separate counting from transformation, or use `enumerate`.
+**Vì sao bad:** Map should be pure. Side effects break parallelization. Pick: separate counting from transformation, or use `enumerate`.
 
 ### Anti-pattern 2 — Reduce với non-associative function
 
@@ -355,7 +355,7 @@ reduce(lambda a, b: a - b, [10, 1, 2, 3], 0)
 # Parallel tree: cannot guarantee same result
 ```
 
-**Tại sao bad:** Subtraction not associative. Pick: only associative ops (sum, max, min, AND, OR, concat).
+**Vì sao bad:** Subtraction not associative. Pick: only associative ops (sum, max, min, AND, OR, concat).
 
 ### Anti-pattern 3 — Closure capturing mutable variable
 
@@ -369,7 +369,7 @@ print([f() for f in funcs])
 # [4, 4, 4, 4, 4] — all see final value of i!
 ```
 
-**Tại sao bad:** Late binding of `i`. Pick: use default arg `lambda i=i: i` or list comp `[lambda i=i: i for i in range(5)]`.
+**Vì sao bad:** Late binding of `i`. Pick: use default arg `lambda i=i: i` or list comp `[lambda i=i: i for i in range(5)]`.
 
 ### Anti-pattern 4 — Over-clever HOF chain unreadable
 
@@ -386,7 +386,7 @@ result = reduce(
 )
 ```
 
-**Tại sao bad:** Nested 5 levels deep, unclear intent. Pick: refactor into named functions or use comprehensions:
+**Vì sao bad:** Nested 5 levels deep, unclear intent. Pick: refactor into named functions or use comprehensions:
 ```python
 sorted_items = sorted(items, key=lambda i: -i)
 filtered = [z for z in sorted_items if z > 5]
