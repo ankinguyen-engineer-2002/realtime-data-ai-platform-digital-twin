@@ -1,159 +1,149 @@
-# Learning Lab
+# Learning Lab — Chương trình 2 năm
 
-> Phòng học — phòng làm — phòng viết. Tất cả trong cùng 1 repo.
-> Không phải tutorial setup. Là **hiểu logic vận hành** bằng tiếng Việt + analogy đời sống.
-
----
-
-## 🎯 Mục tiêu
-
-Sau khi đi hết hệ thống này, bạn KHÔNG chỉ biết "Kafka là gì" theo định nghĩa Wikipedia. Bạn sẽ **giải thích được Kafka cho cô bán bún** trong 3 phút, **biết khi nào nên / không nên dùng**, và **kể được vì sao chọn nó thay vì alternative**.
-
-Đó là khoảng cách giữa *junior đọc tutorial* và *senior thực sự hiểu*.
+> Phòng học — phòng làm — phòng viết. Cấu trúc đại học chuẩn.
+> **43 modules · 662 KUs · ~1.85M từ.**
 
 ---
 
-## 🧭 Cách đi
-
-Mỗi **Knowledge Unit (KU)** trả lời 7 câu hỏi cố định:
+## 🎓 Cấu trúc đại học
 
 ```mermaid
-flowchart LR
-    Q1["🎯 Là gì?<br/>analogy đời sống"] --> Q2["💡 Làm được gì?<br/>capability"]
-    Q2 --> Q3["🧩 Mảnh ghép nào<br/>trong tổng thể?"]
-    Q3 --> Q4["🚀 Giúp ích gì?<br/>value"]
-    Q4 --> Q5["⏰ Khi nào dùng /<br/>KHÔNG dùng?"]
-    Q5 --> Q6["🤔 Vì sao chọn nó<br/>vs alternatives?"]
-    Q6 --> Q7["🔧 Vận hành ra sao?<br/>logic, không code"]
-    Q7 --> ST["🧠 Self-test<br/>3-5 câu"]
+flowchart TB
+    classDef y1 fill:#1e3a5f,color:#fff
+    classDef y2 fill:#3a1e5f,color:#fff
+    classDef cap fill:#5f1e1e,color:#fff
+    classDef done fill:#1e5f1e,color:#fff
 
-    style Q1 fill:#1e3a5f,color:#fff
-    style Q2 fill:#3a1e5f,color:#fff
-    style Q3 fill:#5f1e5f,color:#fff
-    style Q4 fill:#5f1e3a,color:#fff
-    style Q5 fill:#3a5f1e,color:#fff
-    style Q6 fill:#5f3a1e,color:#fff
-    style Q7 fill:#5f5f1e,color:#000
-    style ST fill:#1e5f5f,color:#fff
+    subgraph Y1["📘 YEAR 1 — Foundations"]
+        H1["Học kỳ 1<br/>Engineering Core<br/>5 modules · 64 KUs"]:::y1
+        H2["Học kỳ 2<br/>Systems & Theory<br/>10 modules · 174 KUs"]:::y1
+    end
+
+    subgraph Y2["📕 YEAR 2 — Specialization"]
+        H3["Học kỳ 3<br/>Data Engineering Deep<br/>10 modules · 168 KUs"]:::y2
+        H4["Học kỳ 4<br/>AI + Operations + Architecture<br/>18 modules · 256 KUs"]:::y2
+    end
+
+    CAP["⭐ Capstone<br/>10 lab projects"]:::cap
+
+    H1 --> H2 --> H3 --> H4 --> CAP
+
+    H1 -.->|"✅ F00 12/12 done"| H1
+    H1 -.->|"⏳ F01-F04 pending"| H1
 ```
 
-Đọc [METHODOLOGY.md](./METHODOLOGY.md) để hiểu sâu hơn về triết lý.
-
 ---
 
-## 🗺 Bản đồ học (Learning Map)
+## 📂 Cấu trúc thư mục
 
-```mermaid
-flowchart TD
-    M00["00 Mental Models<br/>🧠 tư duy nền"]
-    M01["01 Foundations<br/>🔌 OS + network + DS"]
-    M02["02 Data Platform Thinking<br/>📊 OLTP/OLAP, batch/stream"]
-    M13["13 Network Fabric ★<br/>🌐 EVPN/VXLAN/BGP"]
-    M03["03 Event Streaming<br/>📮 Kafka, CDC, schema"]
-    M04["04 Stream Processing<br/>🌊 Flink, watermark"]
-    M05["05 Lakehouse<br/>🏞 MinIO, Iceberg"]
-    M06["06 Batch<br/>⚙️ Dagster, recon"]
-    M07["07 Serving<br/>🍽 ClickHouse, Redis, API"]
-    M08["08 Observability<br/>📈 SLO, Prom, Grafana"]
-    M09["09 Governance<br/>📜 contracts, lineage"]
-    M10["10 Security<br/>🔐 zero-trust, PII"]
-    M11["11 AI / RAG<br/>🤖 vector, embedding, eval"]
-    M12["12 Chaos & Reliability<br/>🌪 RTO/RPO"]
-    M14["14 System Design<br/>🏗 trade-off, patterns"]
-    M15["15 Soft Skills<br/>✍️ ADR, runbook, present"]
-
-    M00 --> M01 --> M02 --> M03 --> M04 --> M05 --> M06 --> M07
-    M01 --> M13
-    M02 --> M08
-    M03 --> M09
-    M01 --> M10
-    M05 --> M11
-    M07 --> M11
-    M13 --> M12
-    M03 --> M12
-    M14 -.-> M02
-    M15 -.-> M00
-
-    click M00 "./00-mental-models/" "Module 00"
-    click M01 "./01-foundations/" "Module 01"
-    click M13 "./13-network-fabric/" "Module 13"
-
-    style M13 fill:#5f1e1e,color:#fff
-    style M00 fill:#5f5f1e,color:#000
+```
+learning/
+├── README.md                                ← bạn ở đây
+├── CURRICULUM.md                            ← bản đồ 43 module chi tiết
+├── METHODOLOGY.md                           ← rule viết KU + 16 section
+├── GLOSSARY.md                              ← từ điển Việt-Anh
+│
+├── year-1-foundations/                      ← 📘 YEAR 1
+│   ├── semester-1-engineering-core/         ← Wave 1 (5 modules)
+│   │   ├── F00-mental-models/               ✅ DONE 12/12 KUs
+│   │   ├── F01-cs-fundamentals/             ⏳ 18 KUs
+│   │   ├── F02-programming-paradigms/       ⏳ 14 KUs
+│   │   ├── F03-modern-python-for-data/      ⏳ 12 KUs
+│   │   └── F04-type-systems-validation/     ⏳ 8 KUs
+│   └── semester-2-systems-theory/           ← Wave 2 (10 modules)
+│       ├── F05-operating-systems/           ⏳ 18 KUs
+│       ├── F06-computer-networks/           ⏳ 20 KUs
+│       ├── F07-linux-devops/                ⏳ 16 KUs
+│       ├── F08-containers-k8s-basics/       ⏳ 14 KUs
+│       ├── F09-databases-relational/        ⏳ 18 KUs
+│       ├── F10-databases-beyond-sql/        ⏳ 16 KUs
+│       ├── F11-distributed-systems-theory/  ⏳ 22 KUs
+│       ├── F12-system-design-fundamentals/  ⏳ 20 KUs
+│       ├── F13-security-privacy/            ⏳ 16 KUs
+│       └── F14-math-for-data-ai/            ⏳ 14 KUs
+│
+├── year-2-specialization/                   ← 📕 YEAR 2
+│   ├── semester-3-data-engineering-deep/    ← Wave 3 (10 modules)
+│   │   ├── D15-data-modeling/               ⏳ 16 KUs
+│   │   ├── D16-event-streaming-deep/        ⏳ 22 KUs
+│   │   ├── D17-stream-processing-deep/      ⏳ 22 KUs
+│   │   ├── D18-batch-processing-spark/      ⏳ 18 KUs
+│   │   ├── D19-lakehouse-deep/              ⏳ 20 KUs
+│   │   ├── D20-orchestration-deep/          ⏳ 16 KUs
+│   │   ├── D21-serving-query-engines/       ⏳ 18 KUs
+│   │   ├── D22-data-quality-contracts/      ⏳ 12 KUs
+│   │   ├── D23-cdc-replication/             ⏳ 10 KUs
+│   │   └── D24-modern-data-stack-2026/      ⏳ 14 KUs
+│   └── semester-4-ai-ops-architecture/      ← Wave 4 (18 modules)
+│       ├── D25-backend-engineering/         ⏳ 16 KUs
+│       ├── D26-observability-sre/           ⏳ 20 KUs
+│       ├── D27-governance-lineage/          ⏳ 12 KUs
+│       ├── D28-ml-engineering-foundations/  ⏳ 18 KUs
+│       ├── D29-deep-learning-basics/        ⏳ 14 KUs
+│       ├── D30-llm-engineering/             ⏳ 18 KUs
+│       ├── D31-vector-search-embeddings/    ⏳ 16 KUs
+│       ├── D32-rag-engineering-deep/        ⏳ 14 KUs
+│       ├── D33-ai-agents-tool-use/          ⏳ 12 KUs
+│       ├── D34-mlops-model-serving/         ⏳ 16 KUs
+│       ├── D35-gpu-compute-ai-infra/        ⏳ 14 KUs
+│       ├── D36-network-fabric/              ⏳ 16 KUs ★ differentiator
+│       ├── D37-chaos-reliability/           ⏳ 14 KUs
+│       ├── D38-cloud-native-k8s-deep/       ⏳ 16 KUs
+│       ├── D39-finops-cost-engineering/     ⏳ 8 KUs
+│       ├── D40-solution-architecture/       ⏳ 10 KUs
+│       ├── D41-experimentation-ab-testing/  ⏳ 10 KUs
+│       └── D42-soft-skills-communication/   ⏳ 12 KUs
+│
+├── capstone/                                ← ⭐ Wave 5 (10 labs)
+│   ├── lab-01-event-backbone-cdc/
+│   ├── lab-02-stream-processing-lakehouse/
+│   ├── lab-03-batch-reconciliation-dq/
+│   ├── lab-04-realtime-serving-api/
+│   ├── lab-05-network-chaos-suite/          ★ differentiator
+│   ├── lab-06-observability-runbook/
+│   ├── lab-07-lineage-contracts-pii/
+│   ├── lab-08-rag-service-eval/
+│   ├── lab-09-mlops-pipeline/
+│   └── lab-10-benchmark-portfolio/
+│
+├── _legacy/                                 ← reference cũ (sẽ migrate vào F-modules)
+│   └── M01-foundations-v1/                  12 KUs cũ v1 (sẽ rewrite vào F05/F06/F08/F11)
+│
+├── progress/
+│   ├── checklist.md                         ← tick khi đọc xong KU
+│   └── notes.md                             ← ghi lightbulb/confused
+│
+└── templates/
+    ├── KU-template.md
+    ├── module-quiz-template.md
+    └── colors.md
 ```
 
-Đi theo mũi tên đặc (→). Nét đứt (-->) là kiến thức xuyên suốt, đọc song song.
+---
+
+## 🎯 Trạng thái hiện tại
+
+| Wave | Học kỳ | Modules | KUs done | Status |
+|---|---|---:|---|---|
+| **Wave 1** | HK1 Engineering Core | F00 → F04 | 12/64 | 🟡 19% (F00 done, F01-F04 pending) |
+| **Wave 2** | HK2 Systems & Theory | F05 → F14 | 0/174 | ⚪ pending |
+| **Wave 3** | HK3 Data Engineering Deep | D15 → D24 | 0/168 | ⚪ pending |
+| **Wave 4** | HK4 AI + Ops + Architecture | D25 → D42 | 0/256 | ⚪ pending |
+| **Wave 5** | Capstone | 10 labs | 0/10 | ⚪ pending |
+
+**Tổng:** 12/662 KUs (1.8%) · ~40,500 từ đã viết.
 
 ---
 
-## 📚 Modules
+## 🚀 Start here
 
-| # | Module | KUs | Status |
-|---:|---|---:|---|
-| 00 | [Mental Models — tư duy nền](./00-mental-models/) | 8 | 🟡 Wave 1 |
-| 01 | [Foundations — OS / Network / Distributed Systems](./01-foundations/) | 12 | 🟡 Wave 1 |
-| 02 | [Data Platform Thinking](./02-data-platform-thinking/) | 10 | 🟡 Wave 1 |
-| 03 | [Event Streaming — Kafka / Redpanda / CDC](./03-event-streaming/) | 12 | ⚪ Wave 2 |
-| 04 | [Stream Processing — Flink](./04-stream-processing/) | 14 | ⚪ Wave 2 |
-| 05 | [Lakehouse — MinIO + Iceberg + Trino](./05-lakehouse/) | 10 | ⚪ Wave 2 |
-| 06 | [Batch Orchestration — Dagster](./06-batch-orchestration/) | 8 | ⚪ Wave 2 |
-| 07 | [Serving — ClickHouse / Redis / FastAPI](./07-serving/) | 9 | ⚪ Wave 2 |
-| 08 | [Observability + SLO](./08-observability/) | 11 | ⚪ Wave 3 |
-| 09 | [Governance + Lineage](./09-governance/) | 8 | ⚪ Wave 3 |
-| 10 | [Security + Zero-trust](./10-security/) | 8 | ⚪ Wave 3 |
-| 11 | [AI / RAG](./11-ai-rag/) | 11 | ⚪ Wave 3 |
-| 12 | [Chaos & Reliability](./12-chaos-reliability/) | 9 | ⚪ Wave 3 |
-| 13 | [Network Fabric ★ — EVPN/VXLAN/BGP](./13-network-fabric/) | 12 | 🟡 Wave 1 |
-| 14 | [System Design](./14-system-design/) | 9 | ⚪ Wave 3 |
-| 15 | [Soft Skills — ADR / Runbook / Present](./15-soft-skills/) | 7 | ⚪ Wave 3 |
-
-**Tổng:** ~168 KUs.
-
-Status: 🟢 done · 🟡 in progress · ⚪ pending
-
----
-
-## 🧱 Cách dùng repo này
-
-```mermaid
-flowchart LR
-    L["📖 Học KU<br/>(learning/)"] --> N["📓 Ghi lab journal<br/>(lab-journal/)"]
-    N --> D["✍️ Viết draft blog<br/>(blogs/drafts/)"]
-    D --> P["🚀 Publish blog<br/>(blogs/published/)"]
-    L -.-> B["📚 Đọc sách bổ sung<br/>(library/)"]
-    B --> S["📝 Tóm tắt sách<br/>(library/summaries/)"]
-    S --> L
-```
-
-1. **Đọc KU** trong `learning/<module>/`.
-2. **Đánh dấu** đã đọc xong trong `learning/progress/checklist.md`.
-3. **Ghi nhật ký** tuần đó vào `lab-journal/YYYY-Www.md`: học được gì? confused chỗ nào?
-4. **Viết blog draft** khi đã hiểu đủ để giải thích cho người khác (= test hiểu thực).
-5. **Đọc thêm sách** ở `library/books/<chủ-đề>/` khi muốn sâu hơn.
-6. **Tóm tắt sách** thành `library/summaries/<book>.md` để chốt take-aways.
-
----
-
-## 🤝 Tham chiếu chéo với phần platform
-
-Mỗi KU sẽ trỏ về phần code/doc tương ứng trong repo:
-
-```text
-learning/03-event-streaming/02-partition.md
-  ↓ (See in practice:)
-docs/06-event-backbone.md → topic catalog với partition count
-producers/clickstream_producer.py → producer thực tế
-schemas/ecom/ecom.page_view.v1.json → schema gắn topic
-```
-
-→ Học xong concept → mở file thật → thấy concept ấy được dùng → khắc sâu hơn 10 lần.
-
----
+1. Đọc [METHODOLOGY.md](./METHODOLOGY.md) để hiểu cách viết/đọc KU (16 sections, analogy đời sống, logic-only, no setup).
+2. Đọc [CURRICULUM.md](./CURRICULUM.md) để xem full 43-module map + KU titles.
+3. Bắt đầu [Year 1 → Semester 1 → F00 Mental Models](./year-1-foundations/semester-1-engineering-core/F00-mental-models/) — đã hoàn thành 12/12 KU.
+4. Sau F00 → tiếp F01 CS Fundamentals (đang viết).
 
 ## 📖 Đọc thêm
 
-- [METHODOLOGY.md](./METHODOLOGY.md) — triết lý + cách viết KU
-- [GLOSSARY.md](./GLOSSARY.md) — từ điển Việt-Anh thuật ngữ
-- [`../library/`](../library/) — sách tham khảo
-- [`../blogs/`](../blogs/) — writing lab
-- [`../lab-journal/`](../lab-journal/) — nhật ký
+- [`../library/`](../library/) — 104 sách + 5 paper + 5 free courses (catalog: [`../library/SCAN_INDEX.md`](../library/SCAN_INDEX.md))
+- [`../blogs/`](../blogs/) — writing lab (viết blog từ KU để Hiểu sâu)
+- [`../lab-journal/`](../lab-journal/) — nhật ký học hàng tuần
