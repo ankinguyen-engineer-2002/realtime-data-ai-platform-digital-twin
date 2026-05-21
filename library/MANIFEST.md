@@ -2,8 +2,8 @@
 
 > Catalogue chính thức tất cả sách + paper trong thư viện. Mỗi entry map tới module(s) trong [CURRICULUM.md](../learning/CURRICULUM.md).
 
-**Tổng:** 187 PDFs/EPUBs + 5 paper + 5 Microsoft courses · ~7.4 GB · 17 categories
-**Cập nhật:** 2026-05-21
+**Tổng:** 230 PDFs/EPUBs + 5 paper + 5 Microsoft courses · ~7.7 GB · 18 categories
+**Cập nhật:** 2026-05-21 (cào thêm DE/Fabric multilingual)
 
 > **Lưu ý bản quyền:** Mọi file ở đây tải từ **nguồn vendor chính thức** (CDN của AWS, Snowflake, IBM, Microsoft, Google, OpenAI, Anthropic, delta.io, redis.io...) hoặc **repo public của tác giả**. **Không** có file nào lấy từ libgen/z-library/dokumen/pdfdrive (vi phạm copyright distribution rights).
 
@@ -14,6 +14,7 @@
 | Category | Files | Map vào module |
 |---|---:|---|
 | **cs-fundamentals** ★ NEW (2026-05-21) | 83 | F01 CS Fund · F02 · F03 · F05-F08 (foundation) |
+| **de-fabric-2026** ★ NEW (2026-05-21) | 43 | D15-D24 DE Deep · D24 MS Fabric · D27-D40 (multilingual EN/ZH/JA/RU/ES) |
 | microsoft-fabric | 23 | D24 Modern Data Stack · D19 Lakehouse |
 | data-engineering | 18 | F09 · D15 · D16-D22 (xương sống) |
 | **aws-cloud** ★ NEW | 13 | D24 · D26 · D38 · D40 (whitepapers chính thức) |
@@ -352,6 +353,55 @@ Tất cả từ `redbooks.ibm.com` — official IBM. Thường dày 100-300 tran
 | File | Tags |
 |---|---|
 | `Redis_Building-for-Real-Time_2025.pdf` ⭐ | Redis architecture, real-time patterns |
+
+---
+
+## 🌐 DE/Fabric/Analytics Engineering — Multilingual 2024-2026 (43 PDFs) ★ NEW (2026-05-21)
+
+> **Apply METHODOLOGY §8b RESEARCH-FIRST.** Search 10 ngôn ngữ trước khi viết D15-D24 modules. Tải 43 PDFs từ Microsoft official + vendor whitepapers + arXiv + multilingual translations.
+
+📋 **[Full INDEX](books/de-fabric-2026/INDEX.md)** — chi tiết từng cuốn + mapping vào curriculum.
+
+### Highlights
+
+| Source | Files | Description |
+|---|---:|---|
+| **Microsoft Fabric ebook series (3 vol × multi-lang)** | 7 | Decision Makers Guide EN + ZH-CN + ZH-TW + JA + Manage Govern Vol 3 + Spanish marco |
+| **Microsoft official + partner** | 7 | 3Cloud, Insight, Fractal, Thoughtworks, Forrester TEI, Fabric in a Nutshell |
+| **Databricks Big Books** | 5 | DE 3rd ed (2025) + MLOps v6 + GenAI + DE Guide + Delta Lake Definitive |
+| **Dremio (Iceberg)** | 2 | Apache Iceberg Definitive Guide (O'Reilly free) + Quick Guide |
+| **Confluent (Kafka)** | 1 | Kafka Definitive Guide complete |
+| **Spark official** | 1 | Spark Definitive Guide Excerpts (Databricks) |
+| **AWS whitepapers** | 2 | Cost Modeling + Games Data Lakes |
+| **Apache Doris (中文)** | 1 | Full Doris manual Chinese ecosystem |
+| **Tencent Cloud (中文)** | 1 | DLC Data Lake practical tutorial |
+| **Russian translations** | 2 | Reis-Housley DE bible RU (59 MB!) + Spark in Action RU |
+| **arXiv research papers 2020-2025** | 8 | DE for AI, Lakehouse, Data Mesh, LLM pipelines, Cloud ingestion patterns |
+| **Academic** | 3 | Carbone Flink paper (TU Delft), TAJET Iceberg, Springer JoBD 2025 |
+| **Misc** | 3 | Sogeti Snowflake DE, AarambhQuill Flink 2025 |
+
+### Languages coverage
+
+| Lang | Files | Note |
+|---|---:|---|
+| English | 32 | Main |
+| Chinese 中文 (ZH-CN + ZH-TW) | 5 | Microsoft + Apache Doris + Tencent |
+| Russian Русский | 2 | Reis-Housley + Spark in Action |
+| Japanese 日本語 | 1 | Microsoft Fabric Decision Makers |
+| Spanish Español | 1 | Microsoft Fabric marco |
+| (FR/DE/IT/KO/TH gap) | — | Sách commercial paywalled hoặc Microsoft Learn HTML only |
+
+### Map vào curriculum
+
+| Module | Files |
+|---|---|
+| **D24 Modern Stack Fabric** ⭐ | 13 MSFT Fabric files (multilingual) |
+| D19 Lakehouse | 5 (Iceberg/Delta/Hudi guides) |
+| D18 Spark | 4 (Spark DG + Databricks + RU Spark) |
+| D17 Streaming | 4 (Kafka + Flink paper + AarambhQuill + DLC) |
+| D27 Governance | 3 (Manage Govern + Thoughtworks Data Product) |
+| D29 GenAI / LLM | 2 (Databricks GenAI + arXiv LLM pipeline) |
+| D38 Data Mesh | 2 (Thoughtworks + arXiv) |
 
 ---
 
