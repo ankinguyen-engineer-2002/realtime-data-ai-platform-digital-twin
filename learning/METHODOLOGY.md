@@ -193,6 +193,77 @@ Nếu thiếu 1 trong 5, **chưa viết**. Đó là KU half-baked.
 
 ---
 
+## 8b. 🛑 RULE QUAN TRỌNG — RESEARCH-FIRST (2026-05-21)
+
+> **Trước khi viết bất kỳ KU/module mới nào, BẮT BUỘC research nguồn sách trước.** Không được viết "từ trí nhớ" hoặc fabricate. Phải dựa **nội dung sách thật** — vừa tránh hallucination (§0 SUPER RULE), vừa đảm bảo chất lượng university-grade.
+
+### Quy trình bắt buộc (5 bước)
+
+```mermaid
+flowchart TD
+    classDef rule fill:#5f1e1e,color:#fff
+    classDef ok fill:#1e5f1e,color:#fff
+
+    R1["1. Identify chủ đề/KU sắp viết"]:::rule
+    R2["2. Search **đa ngôn ngữ**:<br/>EN + Vietnamese + Chinese + Russian + German…"]:::rule
+    R3["3. Tải về tất cả sách nổi tiếng có public link<br/>(author site, university CDN, Internet Archive, vendor docs)"]:::rule
+    R4["4. Sample-đọc 2-3 chương cốt lõi của mỗi cuốn để<br/>nắm pattern + content + structure"]:::rule
+    R5["5. Mới viết KU/module — cite cụ thể chapter của sách<br/>trong section 'Đọc thêm'"]:::ok
+
+    R1 --> R2 --> R3 --> R4 --> R5
+```
+
+### Mục đích
+
+| Vì sao bắt buộc | Tác dụng |
+|---|---|
+| **Tránh hallucination** | Không "đoán" content — mọi claim trong KU phải back được bằng nguồn thực |
+| **Achieve university-grade** | Học theo cách viết của Erickson UIUC, OSTEP Wisconsin, Sedgewick Princeton, MIT Press… |
+| **Multi-language coverage** | Một số khái niệm có sách hay nhất ở tiếng Trung (RAG/agent), tiếng Đức (math/CS theory), tiếng Pháp (analysis), tiếng Nga (algorithms Olympiad). Không bỏ qua |
+| **Provenance audit** | Tương lai re-read KU, biết source là gì — không phải "Claude nói" |
+| **License clean** | Tất cả qua check legitimacy (author site CC license, university free PDF, vendor whitepaper, Internet Archive public domain) — KHÔNG dùng Libgen/Z-Library |
+
+### Search queries patterns (gợi ý)
+
+Cho mỗi chủ đề mới, chạy ít nhất 4 query mẫu:
+
+| Pattern | Ví dụ cho topic "compilers" |
+|---|---|
+| `"<topic>" free PDF site:.edu` | `"compilers" free PDF site:.edu` |
+| `"<topic>" free book official author` | `"compiler design" Aho free book official` |
+| `"<topic>" "Creative Commons" textbook` | `"compilers" "Creative Commons" textbook` |
+| `<topic> 教材 PDF 免费` (Chinese) | `编译原理 教材 PDF 免费` |
+| `<topic> Lehrbuch frei PDF` (German) | `Compilerbau Lehrbuch frei PDF` |
+| `<topic> учебник скачать бесплатно` (Russian) | `компиляторы учебник скачать бесплатно` |
+| `<topic> manuel gratuit PDF` (French) | `compilateurs manuel gratuit PDF` |
+
+### Nguồn legitimate (priority order)
+
+1. **Author / university page** (jeffe.cs.illinois.edu, pages.cs.wisc.edu/~remzi, web.mit.edu/6.001)
+2. **Vendor official docs** (Microsoft Learn, AWS docs, Databricks, Snowflake whitepapers)
+3. **Internet Archive** cho sách public domain / out-of-print
+4. **arXiv** cho papers
+5. **GitHub releases** của tác giả (vd: captn3m0/google-sre-ebook converter)
+6. **Publisher's free sample chapters** (O'Reilly, Manning, Packt — first chapter often free)
+
+### Cấm
+
+- ❌ Libgen, Z-Library, sci-hub, pdfdrive, dokumen.pub, *.pirate-sites
+- ❌ Viết về topic mà chưa download / sample-read ít nhất **1 cuốn sách bản gốc** về topic đó
+
+### Implementation checklist khi mở 1 module mới
+
+- [ ] Tìm 5-10 sách hàng đầu về topic
+- [ ] Download tất cả có public link (đa ngôn ngữ OK)
+- [ ] Tổ chức vào `library/books/<category>/` với naming `<Author>_<Year>_<Title>.pdf`
+- [ ] Update `library/MANIFEST.md` thêm category mới
+- [ ] Đọc 2-3 chapter cốt lõi của mỗi sách để pick up writing style + content depth
+- [ ] Viết module — mỗi KU "Đọc thêm" trỏ cụ thể `library/books/<file>.pdf` + page/chapter
+
+**Reference precedent:** F01 CS Fundamentals v3 (2026-05-21) — apply quy trình này sau khi user yêu cầu. Kết quả: 83 PDFs từ Wisconsin/UIUC/MIT/CMU/Princeton + 6 v3 sections nâng KU từ DE-practical lên university-grade.
+
+---
+
 ## 9. Cách dùng METHODOLOGY này
 
 Bạn không phải đọc 1 lần rồi quên. Mỗi lần đọc 1 KU, nếu thấy KU đó **dở** (không thấm, không giải thích được cho người khác), quay lại đây — chắc chắn KU đó thiếu 1 trong 7 phần trên.

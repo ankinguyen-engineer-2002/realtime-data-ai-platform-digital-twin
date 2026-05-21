@@ -2,8 +2,8 @@
 
 > Catalogue chính thức tất cả sách + paper trong thư viện. Mỗi entry map tới module(s) trong [CURRICULUM.md](../learning/CURRICULUM.md).
 
-**Tổng:** 104 PDFs/EPUBs + 5 paper + 5 Microsoft courses · ~7.3 GB · 16 categories
-**Cập nhật:** 2026-05-20
+**Tổng:** 187 PDFs/EPUBs + 5 paper + 5 Microsoft courses · ~7.4 GB · 17 categories
+**Cập nhật:** 2026-05-21
 
 > **Lưu ý bản quyền:** Mọi file ở đây tải từ **nguồn vendor chính thức** (CDN của AWS, Snowflake, IBM, Microsoft, Google, OpenAI, Anthropic, delta.io, redis.io...) hoặc **repo public của tác giả**. **Không** có file nào lấy từ libgen/z-library/dokumen/pdfdrive (vi phạm copyright distribution rights).
 
@@ -13,6 +13,7 @@
 
 | Category | Files | Map vào module |
 |---|---:|---|
+| **cs-fundamentals** ★ NEW (2026-05-21) | 83 | F01 CS Fund · F02 · F03 · F05-F08 (foundation) |
 | microsoft-fabric | 23 | D24 Modern Data Stack · D19 Lakehouse |
 | data-engineering | 18 | F09 · D15 · D16-D22 (xương sống) |
 | **aws-cloud** ★ NEW | 13 | D24 · D26 · D38 · D40 (whitepapers chính thức) |
@@ -220,9 +221,9 @@ Cần bổ sung sau (sách hay nhất cho mỗi gap):
 
 | Module | Sách nên có | Nguồn lấy |
 |---|---|---|
-| F01 CS Fundamentals | "Crash Course in Computation" (Bhargava) hoặc CLRS | mua / library |
-| F02 Programming Paradigms | "Clean Code" (Martin) · "Design Patterns" (GoF) | mua / library |
-| F05 Operating Systems | "Operating Systems: Three Easy Pieces" (Arpaci-Dusseau) | [pages.cs.wisc.edu/~remzi/OSTEP/](https://pages.cs.wisc.edu/~remzi/OSTEP/) FREE |
+| ~~F01 CS Fundamentals~~ ✅ DONE | Erickson Algorithms UIUC + Sedgewick + Morin ODS | [cs-fundamentals/](books/cs-fundamentals/) ✓ |
+| F02 Programming Paradigms | "Clean Code" (Martin) · "Design Patterns" (GoF) | mua / library — và SICP đã có ✓ |
+| ~~F05 Operating Systems~~ ✅ DONE | OSTEP đầy đủ + Downey ThinkOS | [cs-fundamentals/](books/cs-fundamentals/) ✓ |
 | F06 Computer Networks | "Computer Networking: A Top-Down Approach" (Kurose) hoặc "TCP/IP Illustrated" (Stevens) | mua |
 | F07 Linux & DevOps | "The Linux Command Line" (Shotts) | [linuxcommand.org](https://linuxcommand.org/) FREE |
 | F08 Containers/K8s | "Kubernetes the Hard Way" (Hightower) | [GitHub Kelsey Hightower](https://github.com/kelseyhightower/kubernetes-the-hard-way) FREE |
@@ -351,6 +352,53 @@ Tất cả từ `redbooks.ibm.com` — official IBM. Thường dày 100-300 tran
 | File | Tags |
 |---|---|
 | `Redis_Building-for-Real-Time_2025.pdf` ⭐ | Redis architecture, real-time patterns |
+
+---
+
+## 🎓 CS Fundamentals — University-grade textbooks (83 PDFs) ★ NEW (2026-05-21)
+
+> **Bộ sách CS bản gốc free từ trường đại học lớn + tác giả CC license.** Đây là **lớp foundation sâu hơn** module F01 — dành cho bạn nào muốn full undergraduate CS rigor.
+
+📋 **[Full INDEX](books/cs-fundamentals/INDEX.md)** — chi tiết từng cuốn + reading order.
+
+### Highlights
+
+| Source | Files | Description |
+|---|---:|---|
+| **OSTEP** (Arpaci-Dusseau, Wisconsin) | 41 chapters | Operating Systems: Three Easy Pieces — virtualization + concurrency + persistence |
+| **Erickson Algorithms** (UIUC, CC BY 4.0) | 1 (470 trang) | Full textbook — rigorous proofs, NP-hardness |
+| **SICP** (Abelson-Sussman, MIT, CC BY-SA) | 1 | Structure and Interpretation of Computer Programs — classic |
+| **Sedgewick Princeton** (Algorithms 4e slides) | 18 | Visual lectures: sorting, search, graphs, NP |
+| **Open Data Structures** (Morin, Carleton, CC BY) | 3 | Python + Java + C++ versions |
+| **Downey Think series** (Olin College, CC) | 4 | ThinkPython2 + ThinkOS + ThinkStats2 + ThinkDSP |
+| **Beej's Guides** (free official) | 3 | Network programming + IPC + C |
+| **CSAPP samples** (Bryant & O'Hallaron, CMU) | 4 | Computer Systems sample chapters |
+| **MIT Math for CS** (Lehman/Leighton/Meyer) | 1 | Discrete math foundation |
+| **Pro Git** (Chacon & Straub, CC BY-NC-SA) | 1 | Full Pro Git 2e |
+| **Eloquent JavaScript** (Haverbeke, CC BY-NC) | 1 | Full book |
+| **Crafting Interpreters** (Nystrom) | 1 | Sample chapter (full free at craftinginterpreters.com) |
+
+### Map vào curriculum
+
+| Module curriculum | Sách CS Fundamentals tương ứng |
+|---|---|
+| F01 CS Fundamentals | Erickson, Sedgewick slides, Morin ODS |
+| F02 Programming Paradigms | SICP, Crafting Interpreters |
+| F03 Modern Python | Downey ThinkPython2 |
+| F05/F08 OS basics | OSTEP (full 41 chapters), Downey ThinkOS, CSAPP samples |
+| F06 Networks | Beej Network Programming, Beej IPC |
+| F14 Math for AI/ML | Lehman MIT Math for CS, Downey ThinkStats2 |
+
+**Source provenance (all free official):**
+- [pages.cs.wisc.edu/~remzi/OSTEP](https://pages.cs.wisc.edu/~remzi/OSTEP/) — OSTEP
+- [jeffe.cs.illinois.edu/teaching/algorithms](https://jeffe.cs.illinois.edu/teaching/algorithms/) — Erickson (CC BY 4.0)
+- [web.mit.edu/6.001/6.037/sicp.pdf](https://web.mit.edu/6.001/6.037/sicp.pdf) — SICP (CC BY-SA 4.0)
+- [algs4.cs.princeton.edu/lectures](https://algs4.cs.princeton.edu/lectures/) — Sedgewick Princeton
+- [opendatastructures.org](https://opendatastructures.org/) — ODS (CC BY)
+- [greenteapress.com](https://greenteapress.com/) — Downey Think series
+- [beej.us](https://beej.us/) — Beej's Guides
+- [csapp.cs.cmu.edu](https://csapp.cs.cmu.edu/) — CSAPP samples
+- [courses.csail.mit.edu/6.042/spring18/mcs.pdf](https://courses.csail.mit.edu/6.042/spring18/mcs.pdf) — Lehman MIT Math for CS
 
 ---
 

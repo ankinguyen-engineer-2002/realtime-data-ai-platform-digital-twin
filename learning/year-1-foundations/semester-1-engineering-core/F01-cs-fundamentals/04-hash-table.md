@@ -31,7 +31,166 @@ Thư viện trường đại học có **10,000 cuốn sách**. Cách tìm cuố
 
 ---
 
-## 📖 Định nghĩa chính thức
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho 10 triệu entries, làm sao **lookup 1 entry trong vài microseconds** mà không cần (a) sắp xếp toàn bộ, (b) so sánh tuần tự từng entry?
+>
+> **Why hard:** Sorted array binary search Θ(log n) = ~23 bước cho 10M → đã nhanh, nhưng chèn 1 entry mới = Θ(n) shift. Linked list insert Θ(1) nhưng lookup Θ(n). Cây cân bằng (BST) đảo trade-off nhưng vẫn Θ(log n).
+>
+> **What we need:** Một mechanism **biến key thành địa chỉ** (không phải so sánh) — `address = h(key)`. Nếu `h` đủ "đều" (uniform), mọi entry rơi vào bucket riêng → lookup = 1 phép tính + 1 array access ≈ **Θ(1)** *expected*. Trade-off: chấp nhận **worst-case Θ(n)** khi collision dồn về 1 bucket.
+
+→ Đây chính là **hash table contract**: đổi *worst-case guarantee* lấy *average-case speed*.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Khái niệm "scatter storage" / "hash"** ra đời cùng máy tính đầu tiên (1953-1956) tại IBM. **Hans Peter Luhn** (IBM) viết internal memo tháng 1/1953 đề xuất **scatter storage technique** — thuật ngữ "hashing" chưa có.
+- Từ "**hash**" (chặt nhỏ, băm) lấy từ tiếng Anh ẩm thực: "hash browns" = khoai băm nhỏ. Bằng cách **băm key** thành mảnh nhỏ rồi mix lại, ta được số ngẫu nhiên-ish.
+- **Donald Knuth** trong *TAOCP Vol 3* (1973, *Sorting and Searching*) là người đầu tiên phân tích formal về collision distribution + load factor — đặt nền cho mọi hash table sau này.
+- **Robin Hood Hashing** (Pedro Celis, 1986, PhD thesis Waterloo) — biến thể giảm variance lookup time. Today dùng trong Rust HashMap, .NET Core Dictionary.
+- **Cuckoo Hashing** (Pagh & Rodler, 2001) — guarantee Θ(1) worst-case lookup.
+- **Consistent Hashing** (Karger et al., 1997, MIT) — sinh ra cho web caching (Akamai), today là backbone của DynamoDB, Cassandra, MinIO sharding.
+
+→ Mỗi data engineering tool bạn dùng (Redis, Postgres hash index, Kafka producer state, Flink keyed state, Memcached) đều thừa hưởng 70 năm research này.
+
+---
+
+## 🧮 Pseudocode chuẩn — Hash table với separate chaining  *(v3 — Erickson UIUC style)*
+
+```
+INSERT(T, key, value):
+    h ← HASH(key) mod size(T.buckets)
+    《Tìm key trong bucket — nếu đã có thì update》
+    for each entry in T.buckets[h]
+        if entry.key = key then
+            entry.value ← value
+            return
+    《Không có — chèn vào đầu list》
+    APPEND(T.buckets[h], (key, value))
+    T.count ← T.count + 1
+    if T.count / size(T.buckets) > 0.75 then
+        RESIZE(T, 2 × size(T.buckets))
+
+LOOKUP(T, key):
+    h ← HASH(key) mod size(T.buckets)
+    for each entry in T.buckets[h]
+        if entry.key = key then
+            return entry.value
+    return NOT_FOUND
+
+RESIZE(T, new_size):
+    old_buckets ← T.buckets
+    T.buckets ← NEWARRAY(new_size)
+    for each bucket in old_buckets
+        for each (k, v) in bucket
+            INSERT(T, k, v)        《rehash với new_size》
+```
+
+### Pseudocode Robin Hood (open addressing, fairness)
+
+```
+INSERT_RH(T, key, value):
+    h ← HASH(key) mod size(T.buckets)
+    dist ← 0
+    while T.buckets[h] is not empty
+        existing ← T.buckets[h]
+        existing_dist ← (h − existing.original_h) mod size(T.buckets)
+        if existing_dist < dist then
+            《Robin Hood: poor entry steals from rich one》
+            swap (key, value, dist) ↔ existing
+        h ← (h + 1) mod size(T.buckets)
+        dist ← dist + 1
+    T.buckets[h] ← (key, value, dist)
+```
+
+→ Robin Hood giảm **variance** của probe length → 99th percentile latency tốt hơn separate chaining.
+
+---
+
+## 📊 Cost annotation table — 5 collision strategies  *(v3 — Sedgewick Princeton style)*
+
+| Strategy | Insert (avg) | Lookup (avg) | Delete (avg) | Insert (worst) | Lookup (worst) | Space overhead |
+|---|---|---|---|---|---|---|
+| **Separate chaining** (linked list) | Θ(1) | Θ(1 + α) | Θ(1 + α) | Θ(n) | Θ(n) | High (pointer per entry) |
+| **Linear probing** (open addr) | Θ(1)* | Θ(1)* | Θ(1)* hard | Θ(n) | Θ(n) | Low (just array) |
+| **Quadratic probing** | Θ(1)* | Θ(1)* | hard | Θ(n) | Θ(n) | Low |
+| **Double hashing** | Θ(1)* | Θ(1)* | hard | Θ(n) | Θ(n) | Low + 2 hash fns |
+| **Robin Hood hashing** | Θ(1)* | Θ(1)* low variance | hard | Θ(n) | Θ(n) | Low |
+| **Cuckoo hashing** | Θ(1) amortized | **Θ(1) guaranteed** | Θ(1) | Θ(n) rehash | **Θ(1)** | Low + 2 tables |
+
+\* α = load factor (entries/buckets). Under uniform hashing assumption.
+
+**Picking guide:**
+| Cần | Pick |
+|---|---|
+| Default Python/JVM ecosystem | Separate chaining (Python dict, Java HashMap) |
+| Cache-friendly, low memory | Linear probing (Rust HashMap, Google SwissTable) |
+| Low variance latency (P99 quan trọng) | Robin Hood (Rust std, .NET Core Dictionary) |
+| Hard real-time / worst-case guarantee | Cuckoo hashing (some embedded systems) |
+| Distributed keys (sharding) | **Consistent hashing** (DynamoDB, Cassandra, MinIO) |
+
+→ Sedgewick Princeton có bảng tương tự ở slide `Sedgewick_Princeton_HashTables.pdf`.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Bad hash function
+
+```python
+# ❌ Always-42 hash → mọi key vào cùng 1 bucket → degenerate to linked list
+class BadHashMap:
+    def __init__(self):
+        self.buckets = [[] for _ in range(100)]
+
+    def _hash(self, key):
+        return 42    # constant!
+
+    def insert(self, key, value):
+        self.buckets[self._hash(key)].append((key, value))
+```
+
+**Tại sao bad:** Vi phạm **uniformity property**. Insert 1M entries → bucket 42 có 1M entries, 99 bucket còn lại empty. Lookup = Θ(n) linear scan. "Hash table" mà chậm hơn linked list — vô nghĩa.
+
+### Anti-pattern 2 — Hash key có high bit entropy nhưng dùng modulo nhỏ
+
+```python
+# ❌ SHA-256(key) là 256-bit → modulo 100 mất 248 bit entropy
+import hashlib
+def weak_hash(key, n_buckets=100):
+    digest = hashlib.sha256(key.encode()).hexdigest()
+    return int(digest, 16) % n_buckets   # mất hầu hết entropy
+```
+
+**Tại sao bad:** Nếu `n_buckets` không phải prime → modulo gây bias. Pick prime (97, 101, 1009...) hoặc power-of-2 + bitmask + extra mixing (Fibonacci hashing).
+
+### Anti-pattern 3 — Hash table cho ordered iteration
+
+```python
+# ❌ Iterate hash table assuming insertion order
+data = {"banana": 1, "apple": 2, "cherry": 3}
+for k in data:
+    print(k)
+# Python 3.7+ guarantee insertion order (impl detail)
+# BUT: Java 8 HashMap, C++ unordered_map → KHÔNG guarantee
+```
+
+**Tại sao bad:** Hash table = **unordered** by definition. Cần ordered → dùng `OrderedDict`, `TreeMap`, hoặc sorted by key sau khi extract.
+
+### Anti-pattern 4 — User-controllable hash → HashDoS
+
+```python
+# ❌ Web framework receive query params → put vào dict
+@app.route("/api")
+def api(request):
+    params = {k: v for k, v in request.args.items()}
+    # attacker gửi 10,000 keys colliding hash → Θ(n²) insert → DoS
+```
+
+**Tại sao bad:** Classic HashDoS attack (CVE-2011-4815, Python). Mitigation: **randomized hash seed** (Python 3.3+ default, Java 8+ `String.hashCode` is randomized via siphash). Library mới như Rust HashMap dùng SipHash để chống.
+
+---
 
 **Hash table** = data structure dùng **hash function** map key → integer index → vị trí trong **array of buckets**. Mỗi bucket chứa 1 hoặc nhiều entries (collision handling).
 
@@ -549,11 +708,23 @@ Hash everywhere trong DSX Air:
 
 ---
 
-## 🌐 Đọc thêm (chính thống, hạn chế — 3 nguồn)
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
-- **CLRS Chapter 11** — Hash Tables formal treatment.
-- **Robin Hood Hashing paper** — Pedro Celis 1986.
-- **"Mechanical Sympathy" blog by Martin Thompson** — hash table internals + cache.
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_HashTables.pdf` — visual step-through separate chaining + linear probing + load factor analysis.
+- **Open Data Structures (Morin)** → `Morin_OpenDataStructures_python.pdf` Chapter 5 (Hash Tables) — implementation + probing strategies + tabulation hashing analysis. Java/C++ versions cũng có.
+- **Erickson Algorithms (UIUC)** → `Erickson_2019_Algorithms_UIUC.pdf` Chapter 5 (Hash Tables, Universal Hashing).
+
+📖 **Sách commercial (mua / library):**
+- **CLRS Chapter 11** — Hash Tables formal treatment (Universal Hashing, Perfect Hashing).
+- **Mechanical Sympathy blog by Martin Thompson** — hash table cache locality.
+
+📄 **Paper gốc:**
+- Celis (1986), *"Robin Hood Hashing"* PhD thesis, University of Waterloo. [archive.org](https://archive.org).
+- Pagh & Rodler (2001), *"Cuckoo Hashing"*, ESA. [DOI 10.1007/3-540-44676-1_10](https://doi.org/10.1007/3-540-44676-1_10).
+- Karger et al. (1997), *"Consistent Hashing and Random Trees"*, STOC. [DOI 10.1145/258533.258660](https://doi.org/10.1145/258533.258660).
+- Luhn (1953), IBM internal memo "Scatter Storage" — original hashing concept.
 
 ---
 

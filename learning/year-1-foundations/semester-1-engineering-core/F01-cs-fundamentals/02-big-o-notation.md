@@ -48,6 +48,178 @@ Bạn mở **tiệm bún bò** ở quận 1. 4 cô bồi bàn (Nga, Hoa, Lan, Ph
 
 → Big-O = **cách mô tả tốc độ chậm dần khi data lớn lên**.
 
+---
+
+## 🧩 The Crux of the Problem  *(v3 — OSTEP-style framing)*
+
+> **Core question:** Cho hai algorithm cùng giải 1 vấn đề, làm sao **so sánh tốc độ** chúng **độc lập với hardware, ngôn ngữ, compiler** và input cụ thể?
+>
+> **Why hard:** Đo thời gian thực (giây/ms) đổi theo CPU, RAM, lúc đo, OS load. Đếm số instruction đổi theo compiler optimization. Đếm số "ops cao cấp" (compare, swap) thì cũng đổi theo implementation.
+>
+> **What we need:** Một thước đo **invariant** dưới các biến đổi hardware-level — chỉ giữ lại **order of growth** khi n → ∞. Đó chính là Big-O: bỏ qua constant, low-order term, focus duy nhất vào **tốc độ tăng** khi n lớn.
+
+→ Tất cả phần dưới là **mechanism** + **policy** để áp dụng tư duy này vào quyết định kỹ thuật hàng ngày.
+
+---
+
+## 📜 Lịch sử ngắn  *(v3 — etymology + invention)*
+
+- **Big-O notation** được formalized bởi nhà toán học người Đức **Paul Bachmann** (1894) trong sách *Analytische Zahlentheorie* — ban đầu dùng cho number theory, không phải computer.
+- **Edmund Landau** mở rộng năm 1909 (vì vậy còn gọi là **"Landau notation"**).
+- **Donald Knuth** popularize cho computer science năm 1976 trong bài *"Big Omicron and Big Omega and Big Theta"* (*ACM SIGACT News*) — chính thức hoá O / Ω / Θ semantics dùng đến ngày nay.
+- Từ "**algorithm**" gốc từ **al-Khwārizmī** (Persian scholar thế kỷ 9, Baghdad House of Wisdom) — viết các thuật toán cho phép tính số học base-10 ngược lại với base-60 Sumerian. Erickson Algorithms §0.1 dành 3 trang về etymology này.
+- **Today:** Big-O = ngôn ngữ duy nhất universal trong job interview, paper, doc tool (Postgres EXPLAIN, Redis, ClickHouse).
+
+→ Khi bạn nói "O(n log n)" — bạn đang nói **ngôn ngữ Bachmann–Landau–Knuth**, có hơn 130 năm tuổi.
+
+---
+
+## 🧮 Pseudocode chuẩn — minh hoạ Big-O qua 3 thuật toán  *(v3 — Erickson UIUC style)*
+
+### O(n) — Linear search
+
+```
+LINEARSEARCH(A[1..n], target):
+    for i ← 1 to n
+        if A[i] = target then
+            return i
+    return NOT_FOUND
+```
+
+→ Worst case `n` so sánh → **T(n) = Θ(n)**.
+
+### O(log n) — Binary search (sorted array)
+
+```
+BINARYSEARCH(A[1..n], target):
+    lo ← 1
+    hi ← n
+    while lo ≤ hi
+        mid ← ⌊(lo + hi) / 2⌋
+        if A[mid] = target then return mid
+        else if A[mid] < target then lo ← mid + 1
+        else hi ← mid − 1
+    return NOT_FOUND
+```
+
+→ Mỗi vòng lặp **halve** search space → **T(n) = Θ(log n)**.
+
+### O(n log n) — Mergesort
+
+```
+MERGESORT(A[1..n]):
+    if n ≤ 1 then return A
+    mid ← ⌊n / 2⌋
+    L ← MERGESORT(A[1..mid])
+    R ← MERGESORT(A[mid+1..n])
+    return MERGE(L, R)         《MERGE chạy Θ(n)》
+```
+
+→ Recurrence: `T(n) = 2·T(n/2) + Θ(n)` → Master Theorem → **T(n) = Θ(n log n)**.
+
+---
+
+## 📐 Recurrence equations — bridge giữa code và Big-O  *(v3 — formal proof skeleton)*
+
+Recursion → recurrence relation. Master Theorem 3 case:
+
+> `T(n) = a · T(n/b) + f(n)` với `a ≥ 1, b > 1`. Đặt `c = log_b a`.
+>
+> 1. Nếu `f(n) = O(n^(c-ε))` → **T(n) = Θ(n^c)**.
+> 2. Nếu `f(n) = Θ(n^c · log^k n)` → **T(n) = Θ(n^c · log^(k+1) n)**.
+> 3. Nếu `f(n) = Ω(n^(c+ε))` và regularity → **T(n) = Θ(f(n))**.
+
+**Apply 4 algorithm classic:**
+
+| Algorithm | Recurrence | Case | Solution |
+|---|---|:---:|---|
+| Linear search | `T(n) = T(n−1) + Θ(1)` | (linear, not Master) | Θ(n) |
+| Binary search | `T(n) = T(n/2) + Θ(1)` | a=1, b=2, c=0, f=Θ(1) → case 2 | Θ(log n) |
+| Mergesort | `T(n) = 2·T(n/2) + Θ(n)` | a=2, b=2, c=1, f=Θ(n) → case 2 | Θ(n log n) |
+| Naive matrix multiply | `T(n) = 8·T(n/2) + Θ(n²)` | a=8, b=2, c=3, f=Θ(n²) → case 1 | Θ(n³) |
+| Strassen matrix multiply | `T(n) = 7·T(n/2) + Θ(n²)` | a=7, b=2, c=log₂7 ≈ 2.807 → case 1 | Θ(n^2.807) |
+
+→ **Senior nhìn code recursion → viết recurrence → đọc Big-O trong 30 giây.** Reference: Erickson Algorithms §1, CLRS Chapter 4.
+
+---
+
+## 📊 Cost annotation table — Big-O cho operations phổ biến  *(v3 — Sedgewick Princeton style)*
+
+| Operation | Best case | Average | Worst | Amortized | Space |
+|---|---|---|---|---|---|
+| Array access by index | Θ(1) | Θ(1) | Θ(1) | — | Θ(1) |
+| Array search (unsorted) | Θ(1) | Θ(n) | Θ(n) | — | Θ(1) |
+| Sorted array binary search | Θ(1) | Θ(log n) | Θ(log n) | — | Θ(1) |
+| Linked list append (tail ptr) | Θ(1) | Θ(1) | Θ(1) | — | Θ(1) |
+| Linked list search | Θ(1) | Θ(n) | Θ(n) | — | Θ(1) |
+| Hash table insert/lookup | Θ(1) | Θ(1) | Θ(n) | Θ(1)* | Θ(n) |
+| BST insert/lookup | Θ(log n) | Θ(log n) | Θ(n) | — | Θ(n) |
+| Red-Black / B-tree insert | Θ(log n) | Θ(log n) | Θ(log n) | — | Θ(n) |
+| Heap insert | Θ(1) | Θ(log n) | Θ(log n) | — | Θ(n) |
+| Heap extract-min | Θ(log n) | Θ(log n) | Θ(log n) | — | — |
+| Quicksort | Θ(n log n) | Θ(n log n) | Θ(n²) | — | Θ(log n) stack |
+| Mergesort | Θ(n log n) | Θ(n log n) | Θ(n log n) | — | Θ(n) |
+| Hash join | Θ(n + m) | Θ(n + m) | Θ(n · m) | — | Θ(min(n,m)) |
+| Nested-loop join (no index) | Θ(n · m) | Θ(n · m) | Θ(n · m) | — | Θ(1) |
+
+\* = under uniform hashing assumption (xem KU 04 chi tiết).
+
+→ **Senior pick data structure không cần đoán — nhìn bảng này pick đúng cái.** Junior copy-paste, prod sập.
+
+---
+
+## ❌ Bad example / anti-pattern  *(v3 — "Martin's algorithm" style)*
+
+### Anti-pattern 1 — Đo Big-O bằng wall-clock
+
+```python
+# ❌ NHẦM: dùng time.time() để "kết luận" complexity
+import time
+start = time.time()
+result = my_func(data)
+elapsed = time.time() - start
+# "Code chạy 50ms với n=1000 → ‘nhanh’ → O(n)?"   ← KHÔNG
+```
+
+**Tại sao bad:**
+- Wall-clock chứa noise (CPU contention, GC pause, disk cache).
+- 50ms với n=1000 không nói gì về scaling.
+- Cần đo với **nhiều n** (10, 100, 1k, 10k, 100k) → vẽ log-log plot → mới ước lượng được order.
+
+### Anti-pattern 2 — Tự lừa với Big-O constants
+
+```python
+# ❌ NHẦM: "O(n) tốt hơn O(n log n) → mergesort thua linear search?"
+# Cho n=10: linear search ~10 ops, mergesort ~30 ops → linear nhanh hơn ✓
+# Cho n=10^9: linear ~10^9, mergesort ~3×10^10 → mergesort thua?
+
+# SAI! Vì:
+# 1. Bài toán khác nhau — linear SEARCH 1 element, mergesort SORT all elements.
+# 2. Cùng bài toán (sort) → bubble sort O(n²) thua mergesort O(n log n) cho n > ~20.
+```
+
+**Tại sao bad:** So sánh Big-O của hai algorithm giải **bài toán khác nhau** = vô nghĩa. Big-O so sánh chỉ valid cho **cùng I/O contract**.
+
+### Anti-pattern 3 — "Hash table O(1) — luôn nhanh nhất"
+
+```python
+# ❌ NHẦM
+d = {}
+for x in big_list:
+    d[x] = True
+# "O(1) lookup → faster than sorted array binary search O(log n)"?
+
+# SAI vì:
+# - Hash table có **memory overhead** lớn (load factor + bucket array).
+# - Hash function cost không free (hash 1KB key ~ vài μs).
+# - Cache locality kém hơn array (random memory access).
+# - Worst case Θ(n) khi hash collision (bị attacker exploit qua HashDoS).
+```
+
+→ Erickson §0.4 cảnh báo: thuật toán "có vẻ đúng" nhưng vi phạm **assumption ngầm** → không phải thuật toán hợp lệ.
+
+---
+
 Hiểu Big-O thì:
 - Postgres index B-tree = O(log n) → query 1M rows mất ~20 bước. ✓
 - Postgres no index scan = O(n) → query 1M rows mất 1M bước. ❌ chậm
@@ -612,11 +784,22 @@ Big-O thấm vào mọi tool decision:
 
 ---
 
-## 🌐 Đọc thêm (chính thống, hạn chế — 3 nguồn)
+## 🌐 Đọc thêm — refs cụ thể vào library  *(v3 — pointers chính xác)*
 
+📚 **Trong [library/books/cs-fundamentals/](../../../../library/books/cs-fundamentals/):**
+
+- **Erickson Algorithms (UIUC, CC BY 4.0)** → `Erickson_2019_Algorithms_UIUC.pdf` — Chapter 0 (Introduction §0.1 etymology + §0.2 multiplication algorithms historical depth), Chapter 1 (Recursion + recurrences), Chapter 12 (NP-hardness).
+- **Sedgewick Princeton slides** → `Sedgewick_Princeton_Analysis.pdf` — analysis of algorithms with empirical doubling-test methodology.
+- **Open Data Structures (Morin, CC BY)** → `Morin_OpenDataStructures_python.pdf` Chapter 1 — formal definition + asymptotic analysis Python-grounded.
+- **OSTEP (Wisconsin)** → context cho complexity in OS scheduling: `OSTEP_cpu-sched.pdf`, `OSTEP_cpu-sched-mlfq.pdf`.
+
+📖 **Sách commercial (mua / library):**
 - **CLRS, "Introduction to Algorithms" — Chapter 3** — formal definition + properties. Bible.
-- **Aditya Bhargava, "Grokking Algorithms" — Chapter 1** — illustrated explanation, dễ tiếp cận.
-- **Jeff Erickson, "Algorithms"** (free PDF at jeffe.cs.illinois.edu) — modern textbook, free + excellent.
+- **Aditya Bhargava, "Grokking Algorithms" — Chapter 1** — illustrated explanation.
+
+📄 **Paper gốc:**
+- Knuth (1976), *"Big Omicron and Big Omega and Big Theta"*, ACM SIGACT News 8(2). [DOI 10.1145/1008328.1008329](https://doi.org/10.1145/1008328.1008329).
+- Bachmann (1894), *Analytische Zahlentheorie* — bản tiếng Đức gốc (lưu Archive.org).
 
 ---
 
